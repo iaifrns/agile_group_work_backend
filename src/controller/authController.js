@@ -1,12 +1,13 @@
-import prisma from "../lib/prisma.js";
+import { prisma } from "../lib/prisma.js";
 import { generator } from "../util/generateToken.js";
 
 const register = async (req, res) => {
   const { firstName, lastName, email, password, phoneNumber, classLevel } =
     req.body;
 
+  console.log(email);
   const user = await prisma.student.findUnique({
-    where: { email },
+    where: { email: email },
   });
 
   if (user) {
