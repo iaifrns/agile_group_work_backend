@@ -1,5 +1,6 @@
 import { prisma } from "../lib/prisma.js";
 import { generator } from "../util/generateToken.js";
+import bcrypt from "bcryptjs";
 
 const register = async (req, res) => {
   const { firstName, lastName, email, password, phoneNumber, classLevel } =
@@ -30,7 +31,7 @@ const register = async (req, res) => {
     },
   });
 
-  const token = generator(student.id);
+  const token = generator(student.id, res);
 
   res.json({
     status: "success",
@@ -43,4 +44,46 @@ const register = async (req, res) => {
   });
 };
 
-export { register };
+const login = async (req, res) => {
+  const { email, password } = req.body;
+
+  const student = await prisma.student.findUnique({
+    where: { email },
+  });
+
+  if (!student) {
+    return res.json({ error: "Invalide email or password" });
+  }
+
+  const compare = await bcrypt.compare(password, student.password);
+
+  if (!compare) {
+    return res.json({ error: "Invalide email or password" });
+  }
+
+  const token = generator(student.id, res);
+
+  res.json({
+    status: "success",
+    data: {
+      name: student.firstName + " " + student.lastName,
+      email,
+      id: student.id,
+    },
+    token,
+  });
+};
+
+const logout = async (req, res) => {
+  res.cookie("token", "", {
+    httpOnly: true,
+    expires: new Date(0),
+  });
+
+  res.json({
+    status: "success",
+    message: "student logout successfully",
+  });
+};
+
+export { register, login, logout };
