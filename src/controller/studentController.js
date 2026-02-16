@@ -10,7 +10,7 @@ export const getUserProfile = async (req, res) => {
             },
             select: {
                 id: true,
-                fistName: true,
+                firstName: true,
                 lastName:true,
                 email: true,
                 classLevel: true,
