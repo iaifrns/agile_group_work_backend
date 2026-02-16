@@ -1,9 +1,8 @@
 import express from "express";
+import { getUserProfile } from "../controllers/profileController.js";
 
-const router = express.Router()
+const router = express.Router();
 
-router.get('/getAll', (req, res) => {
-    res.json({message: "this api is to display all students"})
-})
+router.get("/profile/:userId", getUserProfile);
 
-export default router
+export default router;
