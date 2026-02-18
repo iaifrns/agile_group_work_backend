@@ -1,3 +1,4 @@
+import jwt from "jsonwebtoken";
 import { prisma } from "../lib/prisma.js";
 import { generator } from "../util/generateToken.js";
 import bcrypt from "bcryptjs";
@@ -86,4 +87,23 @@ const logout = async (req, res) => {
   });
 };
 
-export { register, login, logout };
+const check_token = (req, res) => {
+  try {
+    const token = req.cookies.token;
+
+    if (!token) {
+      return res.status(401).json({
+        loggedIn: false,
+      });
+    }
+    const decoder = jwt.verify(token, process.env.SERVER_KEY);
+    return res.json({ loggedIn: true, id: decoder });
+  } catch (e) {
+    console.log(e);
+    return res.status(401).json({
+      loggedIn: false,
+    });
+  }
+};
+
+export { register, login, logout, check_token };

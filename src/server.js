@@ -1,9 +1,11 @@
 import express from "express";
 import { prisma } from "./lib/prisma.js";
 import { config } from "dotenv";
+import cors from "cors";
 
 import studentRoute from "./routes/studentRoute.js";
 import authRoute from "./routes/authRoute.js";
+import cookieParser from "cookie-parser";
 
 const app = express();
 
@@ -12,6 +14,14 @@ prisma.$connect();
 
 //middleware
 app.use(express.json());
+app.use(
+  cors({
+    origin: "http://localhost:5173",
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE"],
+  }),
+);
+app.use(cookieParser())
 
 //routes
 app.use("/student", studentRoute);

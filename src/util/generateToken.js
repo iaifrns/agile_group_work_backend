@@ -6,8 +6,8 @@ const generator = (studentId, res) => {
 
     res.cookie('token', token, {
         httpOnly: true,
-        sercure: true,
-        sameSite: 'strict'
+        sercure: false,
+        sameSite: 'lax'
     })
     return token
 }
