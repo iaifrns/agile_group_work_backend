@@ -1,6 +1,5 @@
-import { prisma } from "../config/db.js";
-import bcrypt from 'bcryptjs'
-import { generator } from "../utils/generateToken.js";
+
+import { prisma } from "../lib/prisma.js";
 
 export const getUserProfile = async (req, res) => {
     try{
