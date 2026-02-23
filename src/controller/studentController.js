@@ -1,4 +1,6 @@
 import { prisma } from "../config/db.js";
+import bcrypt from 'bcryptjs'
+import { generator } from "../utils/generateToken.js";
 
 export const getUserProfile = async (req, res) => {
     try{
@@ -10,7 +12,7 @@ export const getUserProfile = async (req, res) => {
             },
             select: {
                 id: true,
-                fistName: true,
+                firstName: true,
                 lastName:true,
                 email: true,
                 classLevel: true,
