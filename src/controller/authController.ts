@@ -2,8 +2,9 @@ import jwt from "jsonwebtoken";
 import { prisma } from "../lib/prisma.js";
 import { generator } from "../util/generateToken.js";
 import bcrypt from "bcryptjs";
+import { Request, Response } from "express";
 
-const register = async (req, res) => {
+const register = async (req: Request, res: Response) => {
   const { firstName, lastName, email, password, phoneNumber, classLevel } =
     req.body;
 
@@ -45,7 +46,7 @@ const register = async (req, res) => {
   });
 };
 
-const login = async (req, res) => {
+const login = async (req:Request, res:Response) => {
   const { email, password } = req.body;
 
   const student = await prisma.student.findUnique({
@@ -75,7 +76,7 @@ const login = async (req, res) => {
   });
 };
 
-const logout = async (req, res) => {
+const logout = async (req:Request, res:Response) => {
   res.cookie("token", "", {
     httpOnly: true,
     expires: new Date(0),
@@ -87,7 +88,7 @@ const logout = async (req, res) => {
   });
 };
 
-const check_token = (req, res) => {
+const check_token = (req:Request, res:Response) => {
   try {
     const token = req.cookies.token;
 
@@ -96,7 +97,7 @@ const check_token = (req, res) => {
         loggedIn: false,
       });
     }
-    const decoder = jwt.verify(token, process.env.SERVER_KEY);
+    const decoder = jwt.verify(token, process.env.SERVER_KEY!);
     return res.json({ loggedIn: true, id: decoder });
   } catch (e) {
     console.log(e);
