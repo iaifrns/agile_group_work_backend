@@ -1,6 +1,6 @@
 import jwt from "jsonwebtoken";
-import { prisma } from "../lib/prisma.js";
-import { Request, Response } from "express";
+import { prisma } from "../lib/prisma.ts";
+import type { Request, Response } from "express";
 
 // Read the token from the request
 // Check if token is valid

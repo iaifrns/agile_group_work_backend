@@ -1,5 +1,5 @@
-import { Request, Response } from "express";
-import { prisma } from "../lib/prisma.js";
+import type { Request, Response } from "express";
+import { prisma } from "../lib/prisma.ts";
 
 export const getUserProfile = async (req:Request, res:Response) => {
     try{

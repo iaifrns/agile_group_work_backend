@@ -1,8 +1,8 @@
 import jwt from "jsonwebtoken";
-import { prisma } from "../lib/prisma.js";
-import { generator } from "../util/generateToken.js";
+import { prisma } from "../lib/prisma.ts";
+import { generator } from "../util/generateToken.ts";
 import bcrypt from "bcryptjs";
-import { Request, Response } from "express";
+import type { Request, Response } from "express";
 
 const register = async (req: Request, res: Response) => {
   const { firstName, lastName, email, password, phoneNumber, classLevel } =
