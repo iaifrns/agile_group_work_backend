@@ -1,10 +1,10 @@
 import express from "express";
-import { prisma } from "./lib/prisma.ts";
+import { prisma } from "./lib/prisma";
 import { config } from "dotenv";
 import cors from "cors";
 import "dotenv/config";
-import studentRoute from "./routes/studentRoute.ts";
-import authRoute from "./routes/authRoute.ts";
+import studentRoute from "./routes/studentRoute";
+import authRoute from "./routes/authRoute";
 import cookieParser from "cookie-parser";
 
 const app = express();

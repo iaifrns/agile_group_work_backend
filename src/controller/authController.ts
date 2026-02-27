@@ -1,6 +1,6 @@
 import jwt from "jsonwebtoken";
-import { prisma } from "../lib/prisma.ts";
-import { generator } from "../util/generateToken.ts";
+import { prisma } from "../lib/prisma";
+import { generator } from "../util/generateToken";
 import bcrypt from "bcryptjs";
 import type { Request, Response } from "express";
 
