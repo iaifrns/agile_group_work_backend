@@ -7,8 +7,8 @@ const generator = (studentId:string, res:Response) => {
 
     res.cookie('token', token, {
         httpOnly: true,
-        secure: true,
-        sameSite: 'lax'
+        secure: false,
+        sameSite: 'none'
     })
     return token
 }
