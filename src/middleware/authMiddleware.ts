@@ -1,9 +1,10 @@
 import jwt from "jsonwebtoken";
-import { prisma } from "../lib/prisma.js";
+import { prisma } from "../lib/prisma";
+import type { Request, Response } from "express";
 
 // Read the token from the request
 // Check if token is valid
-export const authMiddleware = async (req, res, next) => {
+export const authMiddleware = async (req:Request, res:Response, next: any) => {
     console.log("Auth middleware reached");
     let token;
 
@@ -25,10 +26,10 @@ export const authMiddleware = async (req, res, next) => {
 
     try{
         // Verify token and extract the user Id
-        const decoded = jwt.verify(token, process.env.SERVER_KEY)
+        const decoded = jwt.verify(token, process.env.SERVER_KEY!);
 
         const user = await prisma.student.findUnique({
-            where: {id: decoded.id },
+            where: {id: decoded as string },
         });
 
         if (!user){
@@ -37,11 +38,11 @@ export const authMiddleware = async (req, res, next) => {
             .json( {error: "User no longer exists"})
         }
 
-        req.user = user;
+        //req.user = user;
         next();
 
     }catch (err) {
-        console.error("Auth middleware error:", err.message);
+        console.error("Auth middleware error:", err);
         return res.status(401).json({error: "Not authorized, token failed"})
     }
 
