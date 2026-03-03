@@ -27,9 +27,13 @@ export const authMiddleware = async (req:Request, res:Response, next: any) => {
     try{
         // Verify token and extract the user Id
         const decoded = jwt.verify(token, process.env.SERVER_KEY!);
+        console.log("Decoded token:", decoded);
+
+        // extract 'id' from decoded
+        const userId = typeof decoded === 'string' ? decoded : decoded.id;
 
         const user = await prisma.student.findUnique({
-            where: {id: decoded as string },
+            where: {id: userId},
         });
 
         if (!user){
