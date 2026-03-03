@@ -161,6 +161,5 @@ export const updateUserProfile = async (req:Request, res:Response) => {
         });
         }
 
-
     }
 };

@@ -5,12 +5,17 @@
 // Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
 
 generator client {
-  provider = "prisma-client-js"
+  provider = "prisma-client"
   output   = "../src/generated/prisma"
 }
 
 datasource db {
   provider = "postgresql"
+}
+
+enum GroupStatus {
+  REQUEST
+  MEMBER
 }
 
 //student model 
@@ -30,7 +35,7 @@ model GroupMembers{
   id String @id @default(uuid())
   student_id String
   group_id String
-  staus GroupStatus
+  status GroupStatus
   student Student @relation(fields: [student_id], references: [id],onDelete: Cascade)
   group Group @relation(fields: [group_id], references: [id], onDelete: Cascade)
 }
@@ -45,7 +50,3 @@ model Group{
   groupMembers GroupMembers[]
 }
 
-enum GroupStatus{
-  REQUEST
-  MEMBER
-}
