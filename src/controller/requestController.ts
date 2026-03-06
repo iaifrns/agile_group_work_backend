@@ -94,10 +94,9 @@ export const getJoinRequests = async (req: Request, res: Response) => {
     }
 };
 
-
 //Handle requests (Approve/Decline)
 export const processJoinRequest = async (req: Request, res: Response) => {
-    try{
+    try {
         const { action, groupId, requestId, userId } = req.body;
         //const userId = (req as any).user?.id;
 
@@ -175,12 +174,12 @@ export const processJoinRequest = async (req: Request, res: Response) => {
             });
         }
 
-        //Check if the request has been handled
+        //Check if the request has been handled    
         if (joinRequest.status !== GroupStatus.REQUEST) {
             return res.status(400).json({
                 success: false,
-                message: `Request already ${joinRequest.status === GroupStatus.MEMBER ? 'Approved':'Processed'}.`
-            });
+                message: `Request already ${joinRequest.status === GroupStatus.MEMBER ? 'approved':'processed'}.`
+        });
         }
 
         //Handle request
@@ -188,7 +187,7 @@ export const processJoinRequest = async (req: Request, res: Response) => {
             //Approve: update status to "MEMBER"
             await prisma.groupMembers.update({
                 where: {
-                    id: `${requestId}`
+                    id: `${ requestId }`
                 }, 
                 data: {
                     status: GroupStatus.MEMBER
@@ -208,13 +207,41 @@ export const processJoinRequest = async (req: Request, res: Response) => {
     
         } else {
             //Decline: delete request record
-           // await prisma.groupMembers.delete({
-               // where:
-           // })
+            await prisma.groupMembers.delete({
+               where: {
+                id: `${ requestId }`
+               }
+               });
+
+            return res.status(200).json({
+                success: true,
+                message: "Request rejected successfully.",
+                data: {
+                    requestId: requestId,
+                    status: "Rejected",
+                    studentName: `${joinRequest.student.firstName} ${joinRequest.student.lastName}`,
+                    groupName: group.name
+                }
+            });
         }
 
-
     } catch (error) {
+        console.error("Process join request error:", error);
 
+        //Handle Prisma errors
+        if (error && typeof error === 'object' && 'code' in error) {
+            const prismaError = error as { code: string };
+            if (prismaError.code === 'P2025') {
+                return res.status(404).json({
+                success: false,
+                message: "Request not found."
+                });
+            }
+        }
+
+        return res.status(500).json({
+            success: false,
+            message: "Server error"
+        });
     }
-}
+};
