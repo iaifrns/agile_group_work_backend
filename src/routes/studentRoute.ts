@@ -8,6 +8,6 @@ const router = express.Router();
 router.get("/profile/:userId", authMiddleware, getUserProfile);
 
 // PUT - update user profile (need login)
-router.put('/profile/:userId',authMiddleware, updateUserProfile);
+router.put('/profile/:userId', authMiddleware, updateUserProfile);
 
 export default router;
