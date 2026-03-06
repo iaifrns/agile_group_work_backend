@@ -5,18 +5,20 @@ import type { Request, Response } from "express";
 // Read the token from the request
 // Check if token is valid
 export const authMiddleware = async (req:Request, res:Response, next: any) => {
-    console.log("Auth middleware reached");
+    
     let token;
 
     if (
         req.headers.authorization 
         && req.headers.authorization.startsWith("Bearer")
     ){
+        console.log("Auth middleware reached 1");
         token = req.headers.authorization.split(" ") [1] 
     }//else if (req.cookies?.jwt) {
         //token = req.cookies.jwt;
         // Supports both cookie names
-    else if (req.cookies?.jwt || req.cookies?.tokens){
+    else if (req.cookies?.jwt || req.cookies?.token){
+        console.log("Auth middleware reached 2");
         token = req.cookies.jwt || req.cookies.token;
     }
 
