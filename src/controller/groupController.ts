@@ -170,3 +170,46 @@ export const deleteGroup = async (req: Request, res: Response) => {
         return res.status(500).json({success: false, message: "Server Error"});
     }
 };
+
+// API End point to return all group 
+// Get all groups - for frontend display
+export const getAllGroups = async (req: Request, res: Response) => {
+    try {
+        const groups = await prisma.group.findMany({
+            select: {
+                id: true,
+                name: true,
+                createdAt: true,
+                admin: true,
+                _count: {
+                    select: {
+                        groupMembers: true,
+                    },
+                },
+            },
+            orderBy: {
+                createdAt: "desc",
+            },
+        });
+
+        const formattedGroups = groups.map((group) => ({
+            id: group.id,
+            name: group.name,
+            createdAt: group.createdAt,
+            admin: group.admin,
+            membersCount: group._count.groupMembers,
+        }));
+
+        return res.status(200).json({
+            success: true,
+            count: formattedGroups.length,
+            data: formattedGroups,
+        });
+    } catch (error) {
+        console.error("getAllGroups error:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Server Error",
+        });
+    }
+};
