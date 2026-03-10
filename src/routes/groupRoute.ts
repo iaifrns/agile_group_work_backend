@@ -1,17 +1,25 @@
 import { Router } from "express";
 import {
+    createGroup,
     getAllGroups,
     getGroupDetails,
     updateGroupName,
     addMemberToGroup,
     removeMemberFromGroup,
     deleteGroup,
+    //sendJoinRequest,
 } from "../controller/groupController";
 
 const router = Router();
 
 // GET all groups
 router.get("/", getAllGroups);
+
+// Create a new group
+router.post("/", createGroup);
+
+// Send Join Request Group
+//router.post("/:groupId/join-requests", sendJoinRequest);
 
 // GET single group details
 router.get("/:groupId", getGroupDetails);

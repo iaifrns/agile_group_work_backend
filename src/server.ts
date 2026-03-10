@@ -27,7 +27,7 @@ app.use(cookieParser());
 //routes
 app.use("/student", studentRoute);
 app.use("/auth", authRoute);
-app.use("/api/groups", groupRoutes);
+app.use("/groups", groupRoutes);
 
 const port = 5002;
 
