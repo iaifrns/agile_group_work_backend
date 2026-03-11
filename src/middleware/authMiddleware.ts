@@ -1,10 +1,10 @@
 import jwt from "jsonwebtoken";
 import { prisma } from "../lib/prisma";
-import type { Request, Response } from "express";
+import type { Request, Response, NextFunction } from "express";
 
 // Read the token from the request
 // Check if token is valid
-export const authMiddleware = async (req:Request, res:Response, next: any) => {
+export const authMiddleware = async (req:Request, res:Response, next: NextFunction) => {
     
     let token;
     if (
@@ -40,7 +40,7 @@ export const authMiddleware = async (req:Request, res:Response, next: any) => {
             return res.status(401).json( {error: "User no longer exists"});
         }
 
-        //req.user = user;
+        req.user = user;
         next();
 
     } catch (err) {
