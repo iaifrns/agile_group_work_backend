@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import {prisma} from "../lib/prisma";
-
+import jwt, { JwtPayload } from "jsonwebtoken";
 /*
  * Group Controller
  * Fetches Group details
@@ -214,6 +214,7 @@ export const getAllGroups = async (req: Request, res: Response) => {
     }
 };
 
+/*
 // API Endpoint for group cration
 // Create Group - creator becomes admin
 
@@ -299,80 +300,116 @@ export const getAllGroups = async (req: Request, res: Response) => {
         });
     }
 };
- 
 
- 
-
-// Create a new group
-/*
-export const createGroup = async (req: Request, res: Response) => {
-    try {
-        const { name, id } = req.body; 
-        // id = student/admin id coming from token or request body
-        // This matches the style used in your existing code
-
-        if (!name || typeof name !== "string" || !name.trim()) {
-            return res.status(400).json({
-                success: false,
-                message: "Group name is required",
-            });
-        }
-
-        if (!id || typeof id !== "string") {
-            return res.status(400).json({
-                success: false,
-                message: "Student id is required",
-            });
-        }
-
-        // Check that the student/admin exists
-        const student = await prisma.student.findUnique({
-            where: { id },
-        });
-
-        if (!student) {
-            return res.status(404).json({
-                success: false,
-                message: "Student not found.",
-            });
-        }
-
-        // Create group and add admin as first member
-        const newGroup = await prisma.$transaction(async (tx) => {
-            const group = await tx.group.create({
-                data: {
-                    name: name.trim(),
-                    admin: id,
-                },
-                select: {
-                    id: true,
-                    name: true,
-                    createdAt: true,
-                    admin: true,
-                },
-            });
-
-            await tx.groupMembers.create({
-                data: {
-                    group_id: group.id,
-                    student_id: id,
-                },
-            });
-
-            return group;
-        });
-
-        return res.status(201).json({
-            success: true,
-            message: "Group created successfully.",
-            data: newGroup,
-        });
-    } catch (error) {
-        console.error("createGroup error:", error);
-        return res.status(500).json({
-            success: false,
-            message: "Server Error",
-        });
-    }
-};
 */
+ 
+
+// API Endpoint for group creation
+// Create Group - creator becomes admin
+
+
+export const createGroup = async (req: Request, res: Response) => {
+  try {
+    const { name } = req.body;
+
+    if (!name || typeof name !== "string" || !name.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: "Group name is required",
+      });
+    }
+
+    let token: string | undefined;
+
+    if (
+      req.headers.authorization &&
+      req.headers.authorization.startsWith("Bearer ")
+    ) {
+      token = req.headers.authorization.split(" ")[1];
+    } else if (req.cookies?.jwt || req.cookies?.token) {
+      token = req.cookies.jwt || req.cookies.token;
+    }
+
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        message: "Not authorized, no token provided",
+      });
+    }
+
+    const decoded = jwt.verify(token, process.env.SERVER_KEY!) as JwtPayload;
+
+    const userId = decoded.id;
+
+    if (!userId || typeof userId !== "string") {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid token payload",
+      });
+    }
+
+    // Check if student exists
+    const student = await prisma.student.findUnique({
+      where: { id: userId },
+    });
+
+    if (!student) {
+      return res.status(404).json({
+        success: false,
+        message: "Student not found",
+      });
+    }
+
+    // Prevent duplicate group names
+    const existingGroup = await prisma.group.findFirst({
+      where: {
+        name: name.trim(),
+      },
+    });
+
+    if (existingGroup) {
+      return res.status(409).json({
+        success: false,
+        message: "A group with this name already exists",
+      });
+    }
+
+    // Create group and add creator as first member
+    const group = await prisma.$transaction(async (tx) => {
+      const newGroup = await tx.group.create({
+        data: {
+          name: name.trim(),
+          admin: userId,
+        },
+      });
+
+      await tx.groupMembers.create({
+        data: {
+          group_id: newGroup.id,
+          student_id: userId,
+        },
+      });
+
+      return newGroup;
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: "Group created successfully",
+      data: {
+        id: group.id,
+        name: group.name,
+        admin: group.admin,
+        createdAt: group.createdAt,
+      },
+    });
+  } catch (error) {
+    console.error("createGroup error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Server Error",
+    });
+  }
+};
+
+

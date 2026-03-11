@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { authMiddleware } from "../middleware/authMiddleware";
 import {
     createGroup,
     getAllGroups,
@@ -16,13 +17,13 @@ const router = Router();
 router.get("/", getAllGroups);
 
 // Create a new group
-router.post("/", createGroup);
+router.post("/", authMiddleware, createGroup);
 
 // Send Join Request Group
 //router.post("/:groupId/join-requests", sendJoinRequest);
 
 // GET single group details
-router.get("/:groupId", getGroupDetails);
+router.get("/:groupId", authMiddleware, getGroupDetails);
 
 // PATCH update group name
 router.patch("/:groupId", updateGroupName);
