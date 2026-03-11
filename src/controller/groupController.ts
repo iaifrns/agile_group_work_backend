@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { prisma } from "../lib/prisma";
-import { GroupStatus } from "../generated/prisma/enums";
+// import { GroupStatus } from "../generated/prisma/enums";
 
 /*
  * Group Controller
@@ -23,6 +23,7 @@ export const getGroupDetails = async (req: Request, res: Response) => {
         id: true,
         name: true,
         createdAt: true,
+        admin : true,
         groupMembers: {
           select: {
             student: {
@@ -54,7 +55,7 @@ export const getGroupDetails = async (req: Request, res: Response) => {
         id: group.id,
         name: group.name,
         createdAt: group.createdAt,
-        //admin: group.admin,
+        admin: group.admin,
         members,
       },
     });
@@ -83,10 +84,10 @@ export const updateGroupName = async (req: Request, res: Response) => {
         .status(404)
         .json({ success: false, message: "Group not found." });
     }
-    if (group.admin !== req.body.id) {
+    if (!req.user || group.admin !== req.user.id) {
       return res
         .status(403)
-        .json({ success: false, message: "Forbidden (admin only" });
+        .json({ success: false, message: "Forbidden (admin only)" });
     }
     const updated = await prisma.group.update({
       where: { id: groupId as string },
@@ -118,12 +119,12 @@ export const addMemberToGroup = async (req: Request, res: Response) => {
         .status(404)
         .json({ success: false, message: "Group not found." });
     }
-    if (group.admin !== req.body.id) {
+    if (!req.user || group.admin !== req.user.id) {
       return res
         .status(403)
         .json({ success: false, message: "Forbidden (Admin only)" });
     }
-    const student = await prisma.group.findUnique({ where: { id: studentId } });
+    const student = await prisma.student.findUnique({ where: { id: studentId } });
     if (!student) {
       return res
         .status(404)
@@ -141,7 +142,7 @@ export const addMemberToGroup = async (req: Request, res: Response) => {
       data: {
         student_id: studentId,
         group_id: groupId as string,
-        status: GroupStatus.MEMBER,
+        // status: GroupStatus.MEMBER,
       },
     });
     return res
@@ -165,7 +166,7 @@ export const removeMemberFromGroup = async (req: Request, res: Response) => {
         .status(404)
         .json({ success: false, message: "Group not found." });
     }
-    if (group.admin !== req.body.id) {
+    if (!req.user || group.admin !== req.user.id) {
       return res
         .status(403)
         .json({ success: false, message: "Forbidden (Admin only)" });
@@ -205,7 +206,7 @@ export const deleteGroup = async (req: Request, res: Response) => {
         .status(404)
         .json({ success: false, message: "Group not found." });
     }
-    if (group.admin !== req.body.id) {
+    if (!req.user || group.admin !== req.user.id) {
       return res
         .status(403)
         .json({ success: false, message: "Forbidden (Admin only)" });
@@ -323,7 +324,7 @@ export const createGroup = async (req: Request, res: Response) => {
         data: {
           group_id: newGroup.id,
           student_id: id,
-          status: GroupStatus.MEMBER,
+          // status: GroupStatus.MEMBER,
         },
       });
 
