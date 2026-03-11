@@ -7,7 +7,6 @@ import studentRoute from "./routes/studentRoute";
 import authRoute from "./routes/authRoute";
 import groupRoute from "./routes/groupRoute";
 import cookieParser from "cookie-parser";
-import groupRoutes from "./routes/groupRoute";
 
 const app = express();
 
