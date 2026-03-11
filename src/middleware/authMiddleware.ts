@@ -5,9 +5,8 @@ import type { Request, Response } from "express";
 // Read the token from the request
 // Check if token is valid
 export const authMiddleware = async (req:Request, res:Response, next: any) => {
-    console.log("Auth middleware reached");
+    
     let token;
-
     if (
         req.headers.authorization 
         && req.headers.authorization.startsWith("Bearer")
@@ -16,7 +15,8 @@ export const authMiddleware = async (req:Request, res:Response, next: any) => {
     }//else if (req.cookies?.jwt) {
         //token = req.cookies.jwt;
         // Supports both cookie names
-    else if (req.cookies?.jwt || req.cookies?.tokens){
+    else if (req.cookies?.jwt || req.cookies?.token){
+        console.log("Auth middleware reached 2");
         token = req.cookies.jwt || req.cookies.token;
     }
 
@@ -24,24 +24,26 @@ export const authMiddleware = async (req:Request, res:Response, next: any) => {
         return res.status(401).json({error: "Not authorized, no token provided"})
     }
 
-    try{
+    try {
         // Verify token and extract the user Id
         const decoded = jwt.verify(token, process.env.SERVER_KEY!);
+        console.log("Decoded token:", decoded);
+
+        // extract 'id' from decoded
+        const userId = typeof decoded === 'string' ? decoded : decoded.id;
 
         const user = await prisma.student.findUnique({
-            where: {id: decoded as string },
+            where: {id: userId},
         });
 
         if (!user){
-            return res
-            .status(401)
-            .json( {error: "User no longer exists"})
+            return res.status(401).json( {error: "User no longer exists"});
         }
 
         //req.user = user;
         next();
 
-    }catch (err) {
+    } catch (err) {
         console.error("Auth middleware error:", err);
         return res.status(401).json({error: "Not authorized, token failed"})
     }

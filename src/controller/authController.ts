@@ -46,7 +46,7 @@ const register = async (req: Request, res: Response) => {
   });
 };
 
-const login = async (req:Request, res:Response) => {
+const login = async (req: Request, res: Response) => {
   const { email, password } = req.body;
 
   const student = await prisma.student.findUnique({
@@ -76,7 +76,7 @@ const login = async (req:Request, res:Response) => {
   });
 };
 
-const logout = async (req:Request, res:Response) => {
+const logout = async (req: Request, res: Response) => {
   res.cookie("token", "", {
     httpOnly: true,
     expires: new Date(0),
@@ -88,15 +88,13 @@ const logout = async (req:Request, res:Response) => {
   });
 };
 
-const check_token = (req:Request, res:Response) => {
+const check_token = (req: Request, res: Response) => {
   try {
     const token = req.cookies.token;
-
-    console.log(token)
     if (!token) {
       return res.status(401).json({
         loggedIn: false,
-        message: 'this thing was here init',
+        message: "this thing was here init",
       });
     }
     const decoder = jwt.verify(token, process.env.SERVER_KEY!);
@@ -105,7 +103,7 @@ const check_token = (req:Request, res:Response) => {
     console.log(e);
     return res.status(401).json({
       loggedIn: false,
-      message: 'what the fuck'
+      message: "what the fuck",
     });
   }
 };

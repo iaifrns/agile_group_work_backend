@@ -1,40 +1,29 @@
-import { Router } from "express";
+import express from "express";
 import { authMiddleware } from "../middleware/authMiddleware";
 import {
-    createGroup,
-    getAllGroups,
-    getGroupDetails,
-    updateGroupName,
-    addMemberToGroup,
-    removeMemberFromGroup,
-    deleteGroup,
-    //sendJoinRequest,
+  createGroup,
+  getAllGroups,
+  getGroupDetails,
+  updateGroupName,
+  addMemberToGroup,
+  removeMemberFromGroup,
+  deleteGroup,
 } from "../controller/groupController";
 
-const router = Router();
+const router = express.Router();
+router.get("/:groupId", authMiddleware, getGroupDetails);
+router.put("/:groupId", authMiddleware, updateGroupName);
+router.post("/:groupId/members", authMiddleware, addMemberToGroup);
+router.delete(
+  "/:groupId/members/:studentId",
+  authMiddleware,
+  removeMemberFromGroup,
+);
+router.delete("/:groupId", authMiddleware, deleteGroup);
+// Create a new group
+router.post("/", createGroup);
 
 // GET all groups
 router.get("/", getAllGroups);
-
-// Create a new group
-router.post("/", authMiddleware, createGroup);
-
-// Send Join Request Group
-//router.post("/:groupId/join-requests", sendJoinRequest);
-
-// GET single group details
-router.get("/:groupId", authMiddleware, getGroupDetails);
-
-// PATCH update group name
-router.patch("/:groupId", updateGroupName);
-
-// POST add member to group
-router.post("/:groupId/members", addMemberToGroup);
-
-// DELETE remove member from group
-router.delete("/:groupId/members/:studentId", removeMemberFromGroup);
-
-// DELETE group
-router.delete("/:groupId", deleteGroup);
 
 export default router;

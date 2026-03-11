@@ -15,7 +15,7 @@ import jwt, { JwtPayload } from "jsonwebtoken";
 //Get the Group details - Retrieves full group details - Does NOT require Admin
 export const getGroupDetails = async (req: Request, res: Response) => {
     try{
-        const {groupId} = req.params;
+        const {groupId} = req.params;   
         const group = await prisma.group.findUnique({
             where: {id: groupId as string},
             select:{
