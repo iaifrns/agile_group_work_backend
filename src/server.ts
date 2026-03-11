@@ -5,6 +5,7 @@ import cors from "cors";
 import "dotenv/config";
 import studentRoute from "./routes/studentRoute";
 import authRoute from "./routes/authRoute";
+import groupRoute from "./routes/groupRoute";
 import cookieParser from "cookie-parser";
 import groupRoutes from "./routes/groupRoute";
 
@@ -27,7 +28,7 @@ app.use(cookieParser());
 //routes
 app.use("/student", studentRoute);
 app.use("/auth", authRoute);
-app.use("/groups", groupRoutes);
+app.use("/groups", groupRoute );
 
 const port = 5002;
 
