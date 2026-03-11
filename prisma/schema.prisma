@@ -43,7 +43,7 @@ model GroupMembers{
 //model group
 model Group{
   id String @id @default(uuid())
-  name String
+  name String @unique
   createdAt DateTime @default(now())
   admin String
 
