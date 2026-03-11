@@ -21,7 +21,7 @@ router.delete(
 );
 router.delete("/:groupId", authMiddleware, deleteGroup);
 // Create a new group
-router.post("/", authMiddleware, createGroup);
+router.post("/create", authMiddleware, createGroup);
 
 // GET all groups
 router.get("/", authMiddleware, getAllGroups);
