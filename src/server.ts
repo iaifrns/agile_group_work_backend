@@ -6,6 +6,7 @@ import "dotenv/config";
 import studentRoute from "./routes/studentRoute";
 import authRoute from "./routes/authRoute";
 import groupRoute from "./routes/groupRoute";
+import requestRoute from "./routes/requestRoute";
 import cookieParser from "cookie-parser";
 
 const app = express();
@@ -28,6 +29,7 @@ app.use(cookieParser());
 app.use("/student", studentRoute);
 app.use("/auth", authRoute);
 app.use("/groups", groupRoute );
+app.use("/requests", requestRoute );
 
 const port = 5002;
 

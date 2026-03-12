@@ -6,13 +6,14 @@
  */
 
 import type { Request, Response } from "express";
-import { prisma } from "../lib/prisma.js";
+import { prisma } from "../lib/prisma";
 import { GroupStatus } from "../generated/prisma";
 
 //Get group join request
 export const getJoinRequests = async (req: Request, res: Response) => {
     try {
-        const {userId, groupId} = req.body;
+        const groupId = req.params.groupId
+        const userId = (req as any).user.id;
         
         //if userId exist (user already login or not)
         if (!userId) {
@@ -97,8 +98,11 @@ export const getJoinRequests = async (req: Request, res: Response) => {
 //Handle requests (Approve/Decline)
 export const processJoinRequest = async (req: Request, res: Response) => {
     try {
-        const { action, groupId, requestId, userId } = req.body;
-        //const userId = (req as any).user?.id;
+        const groupId = req.params.groupId;
+        const requestId = req.params.requestId;
+        const userId = (req as any).user?.id;
+        const { action } = req.body;
+
 
         //Verify the input
         if (!action || !['Approve', 'Decline'].includes(action)){
