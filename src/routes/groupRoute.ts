@@ -20,9 +20,12 @@ router.delete(
   authMiddleware,
   removeMemberFromGroup,
 );
-router.delete("/:groupId", authMiddleware, deleteGroup);
+
 // Create a new group
 router.post("/create", authMiddleware, createGroup);
+
+router.delete("/:groupId", authMiddleware, deleteGroup);
+
 //router.post("/:groupId/join-request", authMiddleware, sendJoinRequest);
 router.post("/:groupId", authMiddleware, sendJoinRequest,)
 
