@@ -273,25 +273,6 @@ export const createGroup = async (req: Request, res: Response) => {
       return res.status(400).json({success: false, message: "Group name is required"});
     }
 
-    // if (!id || typeof id !== "string") {
-    //   return res.status(400).json({
-    //     success: false,
-    //     message: "Admin/creator id is required",
-    //   });
-    // }
-    //
-    // // Check if student exists
-    // const student = await prisma.student.findUnique({
-    //   where: { id },
-    // });
-    //
-    // if (!student) {
-    //   return res.status(404).json({
-    //     success: false,
-    //     message: "Student not found",
-    //   });
-    // }
-
     //prevent duplicate group names
     const existingGroup = await prisma.group.findFirst({
       where: {
@@ -339,76 +320,3 @@ export const createGroup = async (req: Request, res: Response) => {
   }
 };
 
-// Create a new group
-/*
-export const createGroup = async (req: Request, res: Response) => {
-    try {
-        const { name, id } = req.body; 
-        // id = student/admin id coming from token or request body
-        // This matches the style used in your existing code
-
-        if (!name || typeof name !== "string" || !name.trim()) {
-            return res.status(400).json({
-                success: false,
-                message: "Group name is required",
-            });
-        }
-
-        if (!id || typeof id !== "string") {
-            return res.status(400).json({
-                success: false,
-                message: "Student id is required",
-            });
-        }
-
-        // Check that the student/admin exists
-        const student = await prisma.student.findUnique({
-            where: { id },
-        });
-
-        if (!student) {
-            return res.status(404).json({
-                success: false,
-                message: "Student not found.",
-            });
-        }
-
-        // Create group and add admin as first member
-        const newGroup = await prisma.$transaction(async (tx) => {
-            const group = await tx.group.create({
-                data: {
-                    name: name.trim(),
-                    admin: id,
-                },
-                select: {
-                    id: true,
-                    name: true,
-                    createdAt: true,
-                    admin: true,
-                },
-            });
-
-            await tx.groupMembers.create({
-                data: {
-                    group_id: group.id,
-                    student_id: id,
-                },
-            });
-
-            return group;
-        });
-
-        return res.status(201).json({
-            success: true,
-            message: "Group created successfully.",
-            data: newGroup,
-        });
-    } catch (error) {
-        console.error("createGroup error:", error);
-        return res.status(500).json({
-            success: false,
-            message: "Server Error",
-        });
-    }
-};
-*/
