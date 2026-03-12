@@ -260,37 +260,37 @@ export const getAllGroups = async (req: Request, res: Response) => {
   }
 };
 
-// API Endpoint for group cration
+// API Endpoint for group creation
 // Create Group - creator becomes admin
 
 export const createGroup = async (req: Request, res: Response) => {
   const user = (req as any).user;
   try {
-    const { name, id } = req.body;
+    const { name } = req.body;
     const adminId = user.id;
 
     if (!name || typeof name !== "string" || !name.trim()) {
       return res.status(400).json({success: false, message: "Group name is required"});
     }
 
-    if (!id || typeof id !== "string") {
-      return res.status(400).json({
-        success: false,
-        message: "Admin/creator id is required",
-      });
-    }
-
-    // Check if student exists
-    const student = await prisma.student.findUnique({
-      where: { id },
-    });
-
-    if (!student) {
-      return res.status(404).json({
-        success: false,
-        message: "Student not found",
-      });
-    }
+    // if (!id || typeof id !== "string") {
+    //   return res.status(400).json({
+    //     success: false,
+    //     message: "Admin/creator id is required",
+    //   });
+    // }
+    //
+    // // Check if student exists
+    // const student = await prisma.student.findUnique({
+    //   where: { id },
+    // });
+    //
+    // if (!student) {
+    //   return res.status(404).json({
+    //     success: false,
+    //     message: "Student not found",
+    //   });
+    // }
 
     //prevent duplicate group names
     const existingGroup = await prisma.group.findFirst({
@@ -300,10 +300,7 @@ export const createGroup = async (req: Request, res: Response) => {
     });
 
     if (existingGroup) {
-      return res.status(409).json({
-        success: false,
-        message: "A group with this name already exists",
-      });
+      return res.status(409).json({success: false, message: "A group with this name already exists"});
     }
 
     // Create group and add creator as first member
@@ -311,14 +308,14 @@ export const createGroup = async (req: Request, res: Response) => {
       const newGroup = await tx.group.create({
         data: {
           name: name.trim(),
-          admin: id,
+          admin: adminId,
         },
       });
 
       await tx.groupMembers.create({
         data: {
           group_id: newGroup.id,
-          student_id: id,
+          student_id: adminId,
           status: GroupStatus.MEMBER,
         },
       });
@@ -338,10 +335,7 @@ export const createGroup = async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error("createGroup error:", error);
-    return res.status(500).json({
-      success: false,
-      message: "Server Error",
-    });
+    return res.status(500).json({success: false, message: "Server Error"});
   }
 };
 
