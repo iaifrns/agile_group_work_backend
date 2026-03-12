@@ -338,3 +338,89 @@ export const createGroup = async (req: Request, res: Response) => {
   }
 };
 
+// API FOR SEND JOIN REQUEST
+export const sendJoinRequest = async (req: Request, res: Response) => {
+
+    try {
+        const { groupId } = req.params;
+        const studentId = (req as any).user?.id;
+
+if (!studentId) {
+    return res.status(401).json({
+        success: false,
+        message: "Unauthorized",
+    });
+}
+
+        // check if group exists
+        const group = await prisma.group.findUnique({
+            where: { id: groupId as string },
+        });
+
+        if (!group) {
+            return res.status(404).json({
+                success: false,
+                message: "Group not found.",
+            });
+        }
+
+        // optional: prevent admin from sending join request to own group
+        if (group.admin === studentId) {
+            return res.status(400).json({
+                success: false,
+                message: "Admin is already part of this group.",
+            });
+        }
+
+        // check if student already has a membership/request in this group
+        const existingRecord = await prisma.groupMembers.findFirst({
+            where: {
+                group_id: groupId as string,
+                student_id: studentId,
+            },
+        });
+
+        if (existingRecord) {
+            if (existingRecord.status === GroupStatus.MEMBER) {
+                return res.status(409).json({
+                    success: false,
+                    message: "Student is already a member of this group.",
+                });
+            }
+
+            if (existingRecord.status === GroupStatus.REQUEST) {
+                return res.status(409).json({
+                    success: false,
+                    message: "Join request already sent.",
+                });
+            }
+        }
+
+        const joinRequest = await prisma.groupMembers.create({
+            data: {
+                group_id: groupId as string,
+                student_id: studentId,
+                status: GroupStatus.REQUEST,
+            },
+        });
+
+        return res.status(201).json({
+            success: true,
+            message: "Join request sent successfully.",
+            data: {
+                id: joinRequest.id,
+                group_id: joinRequest.group_id,
+                student_id: joinRequest.student_id,
+                status: joinRequest.status,
+            },
+        });
+    } catch (error) {
+        console.error("sendJoinRequest error:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Server Error",
+        });
+    }
+};
+
+ 
