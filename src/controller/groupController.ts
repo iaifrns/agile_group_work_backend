@@ -262,7 +262,6 @@ export const getAllGroups = async (req: Request, res: Response) => {
 
 // API Endpoint for group creation
 // Create Group - creator becomes admin
-
 export const createGroup = async (req: Request, res: Response) => {
   const user = (req as any).user;
   try {
@@ -271,6 +270,25 @@ export const createGroup = async (req: Request, res: Response) => {
 
     if (!name || typeof name !== "string" || !name.trim()) {
       return res.status(400).json({success: false, message: "Group name is required"});
+    }
+
+    if (!adminId || typeof adminId !== "string") {
+      return res.status(400).json({
+        success: false,
+        message: "Admin/creator id is required",
+      });
+    }
+
+    // Check if student exists
+    const student = await prisma.student.findUnique({
+      where: { id:adminId },
+    });
+
+    if (!student) {
+      return res.status(404).json({
+        success: false,
+        message: "Student not found",
+      });
     }
 
     //prevent duplicate group names
