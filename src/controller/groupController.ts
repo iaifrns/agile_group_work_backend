@@ -24,7 +24,7 @@ export const getGroupDetails = async (req: Request, res: Response) => {
         id: true,
         name: true,
         createdAt: true,
-        admin : true,
+        admin: true,
         groupMembers: {
           select: {
             student: {
@@ -68,6 +68,7 @@ export const getGroupDetails = async (req: Request, res: Response) => {
 
 // Update the Group name - Only Admin can update
 export const updateGroupName = async (req: Request, res: Response) => {
+  const user = (req as any).user;
   try {
     const { groupId } = req.params;
     const { name } = req.body;
@@ -85,7 +86,7 @@ export const updateGroupName = async (req: Request, res: Response) => {
         .status(404)
         .json({ success: false, message: "Group not found." });
     }
-    if (!req.user || group.admin !== req.user.id) {
+    if (group.admin !== user.id) {
       return res
         .status(403)
         .json({ success: false, message: "Forbidden (admin only)" });
@@ -104,6 +105,7 @@ export const updateGroupName = async (req: Request, res: Response) => {
 
 // Add Member to Group - Admin Only
 export const addMemberToGroup = async (req: Request, res: Response) => {
+  const user = (req as any).user;
   try {
     const { groupId } = req.params;
     const { studentId } = req.body;
@@ -120,12 +122,14 @@ export const addMemberToGroup = async (req: Request, res: Response) => {
         .status(404)
         .json({ success: false, message: "Group not found." });
     }
-    if (!req.user || group.admin !== req.user.id) {
+    if (group.admin !== user.id) {
       return res
         .status(403)
         .json({ success: false, message: "Forbidden (Admin only)" });
     }
-    const student = await prisma.student.findUnique({ where: { id: studentId } });
+    const student = await prisma.student.findUnique({
+      where: { id: studentId },
+    });
     if (!student) {
       return res
         .status(404)
@@ -157,6 +161,7 @@ export const addMemberToGroup = async (req: Request, res: Response) => {
 
 // Remove Member from Group - Admin Only - Admin cannot remove themselves
 export const removeMemberFromGroup = async (req: Request, res: Response) => {
+  const user = (req as any).user;
   try {
     const { groupId, studentId } = req.params;
     const group = await prisma.group.findUnique({
@@ -167,7 +172,7 @@ export const removeMemberFromGroup = async (req: Request, res: Response) => {
         .status(404)
         .json({ success: false, message: "Group not found." });
     }
-    if (!req.user || group.admin !== req.user.id) {
+    if (group.admin !== user.id) {
       return res
         .status(403)
         .json({ success: false, message: "Forbidden (Admin only)" });
@@ -197,6 +202,7 @@ export const removeMemberFromGroup = async (req: Request, res: Response) => {
 
 // Deleting a Group - Only Admin - Related groupMembers records are removed auto via cascade delete
 export const deleteGroup = async (req: Request, res: Response) => {
+  const user = (req as any).user;
   try {
     const { groupId } = req.params;
     const group = await prisma.group.findUnique({
@@ -207,7 +213,7 @@ export const deleteGroup = async (req: Request, res: Response) => {
         .status(404)
         .json({ success: false, message: "Group not found." });
     }
-    if (!req.user || group.admin !== req.user.id) {
+    if (group.admin !== user.id) {
       return res
         .status(403)
         .json({ success: false, message: "Forbidden (Admin only)" });

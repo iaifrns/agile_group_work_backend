@@ -40,7 +40,7 @@ export const authMiddleware = async (req:Request, res:Response, next: NextFuncti
             return res.status(401).json( {error: "User no longer exists"});
         }
 
-        req.user = user;
+        (req as any).user = user;
         next();
 
     } catch (err) {
