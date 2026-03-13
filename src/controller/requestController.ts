@@ -98,11 +98,17 @@ export const getJoinRequests = async (req: Request, res: Response) => {
 //Handle requests (Approve/Decline)
 export const processJoinRequest = async (req: Request, res: Response) => {
     try {
-        const groupId = req.params.groupId;
-        const requestId = req.params.requestId;
+        const { groupId, requestId} = req.params;
         const userId = (req as any).user?.id;
         const { action } = req.body;
 
+        // for information
+        console.log('Processing request:', {
+            groupId,
+            requestId,
+            userId,
+            action
+        })
 
         //Verify the input
         if (!action || !['Approve', 'Decline'].includes(action)){
