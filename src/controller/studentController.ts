@@ -48,7 +48,14 @@ export const getUserProfile = async (req: Request, res: Response) => {
 
 export const getAllStudents = async (req: Request, res: Response) => {
   try {
+    const user = (req as any).user;
+
     const students = await prisma.student.findMany({
+      where: {
+        NOT: {
+          id: user.id,
+        },
+      },
       select: {
         id: true,
         firstName: true,
