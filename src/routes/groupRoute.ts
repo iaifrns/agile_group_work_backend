@@ -8,6 +8,7 @@ import {
   addMemberToGroup,
   removeMemberFromGroup,
   deleteGroup,
+  sendJoinRequest,
 } from "../controller/groupController";
 
 const router = express.Router();
@@ -19,9 +20,14 @@ router.delete(
   authMiddleware,
   removeMemberFromGroup,
 );
-router.delete("/:groupId", authMiddleware, deleteGroup);
+
 // Create a new group
 router.post("/create", authMiddleware, createGroup);
+
+router.delete("/:groupId", authMiddleware, deleteGroup);
+
+//router.post("/:groupId/join-request", authMiddleware, sendJoinRequest);
+router.post("/:groupId", authMiddleware, sendJoinRequest,)
 
 // GET all groups
 router.get("/", authMiddleware, getAllGroups);

@@ -7,7 +7,7 @@
 
 import type { Request, Response } from "express";
 import { prisma } from "../lib/prisma.js";
-import { GroupStatus } from "../generated/prisma/enums.js";
+import { GroupStatus } from "../generated/prisma";
 
 //Get group join request
 export const getJoinRequests = async (req: Request, res: Response) => {
