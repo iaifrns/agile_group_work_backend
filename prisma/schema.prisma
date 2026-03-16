@@ -16,6 +16,7 @@ model Student {
   phoneNumber  String
   classLevel   String?
   groupMembers GroupMembers[]
+  feedBack FeedBack[]
 }
 
 model GroupMembers {
@@ -35,7 +36,39 @@ model Group {
   groupMembers GroupMembers[]
 }
 
+model Task {
+  id String @id @default(uuid())
+  title String
+  desc String
+  status TaskStatus
+  category TaskCategory
+  assign String[]
+  feedBack FeedBack[]
+}
+
+model FeedBack {
+  id String @id @default(uuid())
+  message String
+  studentId String
+  taskId String
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+}
+
 enum GroupStatus {
   REQUEST
   MEMBER
+}
+
+enum TaskStatus {
+  TODO
+  INPROGRESS
+  DONE
+}
+
+enum TaskCategory {
+  READING
+  EXERCISE 
+  REVISION 
+  PROJECT_WORK
 }
