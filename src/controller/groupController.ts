@@ -494,3 +494,34 @@ export const sendJoinRequest = async (req: Request, res: Response) => {
         });
     }
 };
+
+export const getAllGroupsAStudentIsIn = async (req: Request, res: Response) => {
+  const user = (req as any).user;
+  try {
+    const groups = await prisma.group.findMany({
+      where: {
+        groupMembers: {
+          some: {
+            student_id: user.id,
+            status: GroupStatus.MEMBER,
+          },
+        },
+      },
+      select: {
+        id: true,
+        name: true,
+      },
+    });
+
+    return res.json({
+      status: "success",
+      groups,
+    });
+  } catch (e) {
+    console.log(e);
+    return res.json({
+      status: "error",
+      message: "something went wrong try later",
+    });
+  }
+};
