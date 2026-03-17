@@ -6,13 +6,14 @@
  */
 
 import type { Request, Response } from "express";
-import { prisma } from "../lib/prisma.js";
+import { prisma } from "../lib/prisma";
 import { GroupStatus } from "../generated/prisma";
 
 //Get group join request
 export const getJoinRequests = async (req: Request, res: Response) => {
     try {
-        const {userId, groupId} = req.body;
+        const userId = (req as any).user.id
+        const {groupId} = req.params;
         
         //if userId exist (user already login or not)
         if (!userId) {

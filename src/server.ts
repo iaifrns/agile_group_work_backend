@@ -7,6 +7,7 @@ import studentRoute from "./routes/studentRoute";
 import authRoute from "./routes/authRoute";
 import groupRoute from "./routes/groupRoute";
 import cookieParser from "cookie-parser";
+import requestRoute from "./routes/requestRoute"
 
 const app = express();
 
@@ -28,6 +29,7 @@ app.use(cookieParser());
 app.use("/student", studentRoute);
 app.use("/auth", authRoute);
 app.use("/groups", groupRoute );
+app.use("/group_request",requestRoute)
 
 const port = 5002;
 
