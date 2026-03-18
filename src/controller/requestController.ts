@@ -1,3 +1,7 @@
+import type { Request, Response } from "express";
+import { prisma } from "../lib/prisma";
+import { GroupStatus } from "../generated/prisma";
+
 /*
  * Request Controller
  * Fetch group join request
@@ -5,15 +9,11 @@
  *
  */
 
-import type { Request, Response } from "express";
-import { prisma } from "../lib/prisma";
-import { GroupStatus } from "../generated/prisma";
-
 //Get group join request
 export const getJoinRequests = async (req: Request, res: Response) => {
     try {
-        const userId = (req as any).user.id
-        const {groupId} = req.params;
+        const groupId = req.params.groupId
+        const userId = (req as any).user.id;
         
         //if userId exist (user already login or not)
         if (!userId) {
@@ -98,8 +98,17 @@ export const getJoinRequests = async (req: Request, res: Response) => {
 //Handle requests (Approve/Decline)
 export const processJoinRequest = async (req: Request, res: Response) => {
     try {
-        const { action, groupId, requestId, userId } = req.body;
-        //const userId = (req as any).user?.id;
+        const { groupId, requestId} = req.params;
+        const userId = (req as any).user?.id;
+        const { action } = req.body;
+
+        // for information
+        console.log('Processing request:', {
+            groupId,
+            requestId,
+            userId,
+            action
+        })
 
         //Verify the input
         if (!action || !['Approve', 'Decline'].includes(action)){

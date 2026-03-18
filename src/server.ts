@@ -6,8 +6,10 @@ import "dotenv/config";
 import studentRoute from "./routes/studentRoute";
 import authRoute from "./routes/authRoute";
 import groupRoute from "./routes/groupRoute";
+import requestRoute from "./routes/requestRoute";
+import createTFRoutes from "./routes/createTFRoute";
 import cookieParser from "cookie-parser";
-import requestRoute from "./routes/requestRoute"
+
 
 const app = express();
 
@@ -30,6 +32,7 @@ app.use("/student", studentRoute);
 app.use("/auth", authRoute);
 app.use("/groups", groupRoute );
 app.use("/group_request",requestRoute)
+app.use("/tasks", createTFRoutes);
 
 const port = 5002;
 
