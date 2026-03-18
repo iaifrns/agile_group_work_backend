@@ -122,7 +122,7 @@ export const createFeedback = async (req: Request, res: Response) => {
 
         //check if task exists
         const task = await prisma.task.findUnique({
-            where: { id: taskId }
+            where: { id: taskId as string }
         });
 
         if (!task) {
@@ -137,7 +137,7 @@ export const createFeedback = async (req: Request, res: Response) => {
             data: {
                 message: message.trim(),
                 studentId: userId, //current userId
-                taskId: taskId
+                taskId: taskId as string
             },
             include: {
                 //return student information
@@ -261,7 +261,7 @@ export const updateTask = async (req: Request, res: Response) => {
     //update database
     const updateTask = await prisma.task.update({
       where: {
-        id: taskId,
+        id: taskId as string,
       },
       data: updateData,
       select: {
