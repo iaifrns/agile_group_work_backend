@@ -1,13 +1,13 @@
+import type { Request, Response } from "express";
+import { prisma } from "../lib/prisma";
+import { GroupStatus } from "../generated/prisma";
+
 /*
  * Request Controller
  * Fetch group join request
  * Approve or Decline join request
  *
  */
-
-import type { Request, Response } from "express";
-import { prisma } from "../lib/prisma";
-import { GroupStatus } from "../generated/prisma";
 
 //Get group join request
 export const getJoinRequests = async (req: Request, res: Response) => {
