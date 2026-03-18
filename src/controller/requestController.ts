@@ -246,3 +246,57 @@ export const processJoinRequest = async (req: Request, res: Response) => {
         });
     }
 };
+
+export const getStudentSendRequest = async (req:Request, res: Response) => {
+    try{
+        const user = (req as any).user
+
+        const requestList = await prisma.groupMembers.findMany({
+            where: {
+                student_id: user.id,
+                status: GroupStatus.REQUEST
+            },
+            select: {
+                id: true,
+                group: true,
+            }
+        })
+
+        res.status(200).json({
+            success: true,
+            requestList
+        })
+
+    }catch(e){
+        console.log(e)
+        return res.status(409).json({
+            success: false,
+            message: 'something went wrong please try later ...'
+        })
+    }
+}
+
+export const deleteARequest = async (req: Request, res: Response) => {
+    try{
+        const {requestId} = req.body
+
+        const response = await prisma.groupMembers.delete({
+            where: {
+                id: requestId
+            }
+        })
+
+        console.log(response)
+
+        res.status(200).json({
+            success: true,
+            message: "Request deleted successfully"
+        })
+    }catch(e){
+        console.log(e)
+        res.status(409).json({
+            success: false,
+            message: "Something went wrong please try later ..."
+        })
+    }
+}
