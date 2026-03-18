@@ -8,6 +8,6 @@ const router = express.Router();
 router.get('/:groupId/requests', authMiddleware, getJoinRequests);
 
 //PUT - handle join requests (Approve/Decline)
-router.put('/:groupId/:requestId', authMiddleware, processJoinRequest);
+router.put('/:groupId/requests/:requestId', authMiddleware, processJoinRequest);
 
 export default router;

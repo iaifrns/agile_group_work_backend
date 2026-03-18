@@ -10,6 +10,7 @@ import requestRoute from "./routes/requestRoute";
 import createTFRoutes from "./routes/createTFRoute";
 import cookieParser from "cookie-parser";
 
+
 const app = express();
 
 config();
@@ -30,7 +31,7 @@ app.use(cookieParser());
 app.use("/student", studentRoute);
 app.use("/auth", authRoute);
 app.use("/groups", groupRoute );
-app.use("/requests", requestRoute );
+app.use("/group_request",requestRoute)
 app.use("/tasks", createTFRoutes);
 
 const port = 5002;
