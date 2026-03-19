@@ -141,22 +141,6 @@ export const addMemberToGroup = async (req: Request, res: Response) => {
         const group = await getGroupVerifyAdmin(groupId, user.id, res);
         if (!group) return;
 
-        // const group = await prisma.group.findUnique({
-        //     where: {id: groupId as string},
-        // });
-        //
-        // if (!group) {
-        //     return res
-        //         .status(404)
-        //         .json({success: false, message: "Group not found."});
-        // }
-        //
-        // if (group.admin !== user.id) {
-        //     return res
-        //         .status(403)
-        //         .json({success: false, message: "Forbidden (Admin only)"});
-        // }
-
         const student = await prisma.student.findUnique({
             where: {id: studentId},
         });
@@ -201,21 +185,6 @@ export const removeMemberFromGroup = async (req: Request, res: Response) => {
         const {groupId, studentId} = req.params;
         const group = await getGroupVerifyAdmin(groupId, user.id, res);
         if (!group) return;
-        // const group = await prisma.group.findUnique({
-        //     where: {id: groupId as string},
-        // });
-        //
-        // if (!group) {
-        //     return res
-        //         .status(404)
-        //         .json({success: false, message: "Group not found."});
-        // }
-        //
-        // if (group.admin !== user.id) {
-        //     return res
-        //         .status(403)
-        //         .json({success: false, message: "Forbidden (Admin only)"});
-        // }
 
         if (studentId === group.admin) {
             return res
@@ -251,21 +220,6 @@ export const deleteGroup = async (req: Request, res: Response) => {
         const {groupId} = req.params;
         const group = await getGroupVerifyAdmin(groupId, user.id, res);
         if (!group) return;
-        // const group = await prisma.group.findUnique({
-        //     where: {id: groupId as string},
-        // });
-        //
-        // if (!group) {
-        //     return res
-        //         .status(404)
-        //         .json({success: false, message: "Group not found."});
-        // }
-        //
-        // if (group.admin !== user.id) {
-        //     return res
-        //         .status(403)
-        //         .json({success: false, message: "Forbidden (Admin only)"});
-        // }
 
         await prisma.group.delete({where: {id: groupId as string}});
 
@@ -496,32 +450,32 @@ export const sendJoinRequest = async (req: Request, res: Response) => {
 };
 
 export const getAllGroupsAStudentIsIn = async (req: Request, res: Response) => {
-  const user = (req as any).user;
-  try {
-    const groups = await prisma.group.findMany({
-      where: {
-        groupMembers: {
-          some: {
-            student_id: user.id,
-            status: GroupStatus.MEMBER,
-          },
-        },
-      },
-      select: {
-        id: true,
-        name: true,
-      },
-    });
+    const user = (req as any).user;
+    try {
+        const groups = await prisma.group.findMany({
+            where: {
+                groupMembers: {
+                    some: {
+                        student_id: user.id,
+                        status: GroupStatus.MEMBER,
+                    },
+                },
+            },
+            select: {
+                id: true,
+                name: true,
+            },
+        });
 
-    return res.json({
-      status: "success",
-      groups,
-    });
-  } catch (e) {
-    console.log(e);
-    return res.json({
-      status: "error",
-      message: "something went wrong try later",
-    });
-  }
+        return res.json({
+            status: "success",
+            groups,
+        });
+    } catch (e) {
+        console.log(e);
+        return res.json({
+            status: "error",
+            message: "something went wrong try later",
+        });
+    }
 };

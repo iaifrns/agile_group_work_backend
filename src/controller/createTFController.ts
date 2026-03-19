@@ -88,7 +88,6 @@ export const createTask = async (req: Request, res: Response) => {
     }
 };
 
-
 //2.Create Feedback Controller
 export const createFeedback = async (req: Request, res: Response) => {
     try {
@@ -174,7 +173,6 @@ export const createFeedback = async (req: Request, res: Response) => {
         });
     }
 };
-
 
 //3.Update Task Controller
 export const updateTask = async (req: Request, res: Response) => {
@@ -311,3 +309,33 @@ export const updateTask = async (req: Request, res: Response) => {
   }
 };
 
+// Delete Task - Admin Only
+export const deleteTask = async (req: Request, res: Response) => {
+    const user = (req as any).user;
+    try{
+        const { taskId } = req.params;
+
+        // Check if task exists
+        const task = await prisma.task.findUnique({where: {id: taskId as string}});
+        if (!task) {
+            return res.status(404).json({success: false, message: "Task not found"});
+        }
+
+        /*
+        Admin check - User must be admin of at least oen group
+        Once Task has groupId, update this method
+         */
+        const adminGroup = await prisma.group.findFirst({where: {admin: user.id}});
+        if (!adminGroup) {
+            return res.status(403).json({success: false, message: "Forbidden. Admin Only"});
+        }
+
+        // Delete task - feedback records removed automatically via cascade
+        await prisma.task.delete({where: {id: taskId as string}});
+
+        return res.status(200).json({success: true, message: "Task Deleted"});
+    } catch (error) {
+        console.error("Delete task error:", error);
+        return res.status(500).json({success: false, message: "Server error"});
+    }
+};
