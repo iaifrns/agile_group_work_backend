@@ -42,6 +42,7 @@ model Task {
   desc String
   status TaskStatus
   category TaskCategory
+  type TaskType
   assign String[]
   feedBack FeedBack[]
 }
@@ -71,4 +72,9 @@ enum TaskCategory {
   EXERCISE 
   REVISION 
   PROJECT_WORK
+}
+
+enum TaskType {
+  PERSONAL
+  GROUP
 }
