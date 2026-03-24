@@ -191,3 +191,50 @@ export const updateUserProfile = async (req: Request, res: Response) => {
     }
   }
 };
+
+export const getAllStudentsNotInGroup = async (req: Request, res: Response) => {
+  try{
+    const groupId = req.params.groupId
+
+    const group = await prisma.group.findUnique({
+      where: {
+        id: groupId as string
+      }
+    })
+
+    if (!group) {
+      // Return 404 if it doesn't exist
+      return res
+        .status(404)
+        .json({ success: false, message: "Group not found." });
+    }
+
+    const students  = await prisma.student.findMany({
+      where:{
+        groupMembers:{
+          none:{
+            group_id: groupId as string,
+          }
+        }
+      },
+      select: {
+        firstName: true,
+        lastName: true,
+        email: true,
+        id: true,
+      }
+    })
+
+    return res.json({
+      success: true,
+      students
+    })
+
+  }catch(e){
+    console.log(e)
+    return res.status(500).json({
+      success: false,
+      message: "something went wrong"
+    })
+  }
+}

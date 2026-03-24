@@ -1,6 +1,6 @@
 import type { Request, Response } from "express";
 import { prisma } from '../lib/prisma';
-import { TaskStatus, TaskCategory } from "../generated/prisma";
+import { TaskStatus, TaskCategory, TaskType } from "../generated/prisma";
 
 /*
  * Create Task Controller
@@ -66,7 +66,8 @@ export const createTask = async (req: Request, res: Response) => {
                 desc: desc.trim(),
                 status: status,
                 category: category,
-                assign: assign || []
+                //assign: assign || [],
+                type: TaskType.GROUP
             },
             include: {
                 feedBack: true
@@ -268,7 +269,7 @@ export const updateTask = async (req: Request, res: Response) => {
         desc: true,
         status: true,
         category: true,
-        assign: true,
+        //assign: true,
       },
     });
 
