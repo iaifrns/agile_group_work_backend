@@ -17,6 +17,7 @@ model Student {
   classLevel   String?
   groupMembers GroupMembers[]
   feedBack FeedBack[]
+  Tasks Task[]
 }
 
 model GroupMembers {
@@ -43,7 +44,7 @@ model Task {
   status TaskStatus
   category TaskCategory
   type TaskType
-  assign String[]
+  students Student[]
   feedBack FeedBack[]
 }
 
