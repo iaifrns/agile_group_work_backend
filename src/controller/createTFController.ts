@@ -5,10 +5,11 @@ import { TaskStatus, TaskCategory, TaskType } from "../generated/prisma";
 /*
  * Create Task Controller
  * Create Feedback Controller
- * 
+ * Get All Tasks Controller
+ * Get Single Task Controller
  * Update Task Controller
  * Update Feedback Controller
- *
+ * Delete Task Controller
  */
 
 //1.Create Task Controller
@@ -425,5 +426,191 @@ export const deleteTask = async (req: Request, res: Response) => {
     } catch (error) {
         console.error("Delete task error:", error);
         return res.status(500).json({success: false, message: "Server error"});
+    }
+};
+
+export const getFeedbackForTask = async (req: Request, res: Response) => {
+    try {
+        const { taskId } = req.params;
+
+        // check if taskId is provided
+        if (!taskId) {
+            return res.status(400).json({
+                success: false,
+                message: "Task ID is required"
+            });
+        }
+
+        // check if task exists
+        const task = await prisma.task.findUnique({
+            where: { id: taskId as string },
+            select: {
+                id: true,
+                title: true
+            }
+        });
+
+        if (!task) {
+            return res.status(404).json({
+                success: false,
+                message: "Task not found"
+            });
+        }
+
+        // get all feedback for the task, newest first
+        const feedbacks = await prisma.feedBack.findMany({
+            where: {
+                taskId: taskId as string
+            },
+            orderBy: {
+                createdAt: "desc"
+            },
+            select: {
+                id: true,
+                message: true,
+                createdAt: true,
+                student: {
+                    select: {
+                        id: true,
+                        firstName: true,
+                        lastName: true,
+                        email: true
+                    }
+                }
+            }
+        });
+
+        return res.status(200).json({
+            success: true,
+            count: feedbacks.length,
+            task: task,
+            data: feedbacks
+        });
+
+    } catch (error) {
+        console.error("Get feedback for task error:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Server error"
+        });
+    }
+};
+
+
+// GET all tasks
+export const getAllTasks = async (req: Request, res: Response) => {
+    try {
+        const tasks = await prisma.task.findMany({
+            select: {
+                id: true,
+                title: true,
+                desc: true,
+                status: true,
+                category: true,
+                type: true,
+                _count: {
+                    select: {
+                        feedBack: true,
+                        students: true
+                    }
+                }
+            },
+            orderBy: {
+                title: "asc"
+            }
+        });
+
+        const formattedTasks = tasks.map((task) => ({
+            id: task.id,
+            title: task.title,
+            desc: task.desc,
+            status: task.status,
+            category: task.category,
+            type: task.type,
+            feedbackCount: task._count.feedBack,
+            studentsCount: task._count.students
+        }));
+
+        return res.status(200).json({
+            success: true,
+            count: formattedTasks.length,
+            data: formattedTasks
+        });
+    } catch (error) {
+        console.error("Get all tasks error:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Server error"
+        });
+    }
+};
+
+// GET single task by ID
+export const getTaskById = async (req: Request, res: Response) => {
+    try {
+        const { taskId } = req.params;
+
+        if (!taskId) {
+            return res.status(400).json({
+                success: false,
+                message: "Task ID is required"
+            });
+        }
+
+        const task = await prisma.task.findUnique({
+            where: {
+                id: taskId as string
+            },
+            select: {
+                id: true,
+                title: true,
+                desc: true,
+                status: true,
+                category: true,
+                type: true,
+                students: {
+                    select: {
+                        id: true,
+                        firstName: true,
+                        lastName: true,
+                        email: true,
+                        classLevel: true,
+                        phoneNumber: true
+                    }
+                },
+                feedBack: {
+                    select: {
+                        id: true,
+                        message: true,
+                        student: {
+                            select: {
+                                id: true,
+                                firstName: true,
+                                lastName: true,
+                                email: true
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        if (!task) {
+            return res.status(404).json({
+                success: false,
+                message: "Task not found"
+            });
+        }
+
+        return res.status(200).json({
+            success: true,
+            data: task
+        });
+    } catch (error) {
+        console.error("Get task by ID error:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Server error"
+        });
     }
 };
