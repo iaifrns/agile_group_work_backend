@@ -120,10 +120,34 @@ export const createTask = async (req: Request, res: Response) => {
                     },
                     groupId: group.id
                 },
-                include: {
-                    students: true,
-                    feedBack: true
-                }
+                select: {
+                    id: true,
+                    title: true,
+                    desc: true,
+                    status: true,
+                    category: true,
+                    type: true,
+                    groupId: true,
+                    students: {
+                        select: {
+                            id: true,
+                            firstName: true,
+                            lastName: true,
+                            email: true,
+                            phoneNumber: true,
+                            classLevel: true
+                        }
+                    },
+                    feedBack: true,
+                    group: {
+                        select: {
+                            id: true,
+                            name: true,
+                            admin: true,
+                            createdAt: true
+                        }
+                    }
+                }   
             });
 
             return res.status(201).json({
@@ -138,8 +162,7 @@ export const createTask = async (req: Request, res: Response) => {
 
         //verify personal task
         if (type.includes('PERSONAL')) {
-
-            
+    
         console.error(studentList);
 
             //create task body
@@ -154,10 +177,26 @@ export const createTask = async (req: Request, res: Response) => {
                         connect: studentList // link to students: [{id: ""}]
                     },
                 },
-                include: {
-                    students: true,
+                select: {
+                    id: true,
+                    title: true,
+                    desc: true,
+                    status: true,
+                    category: true,
+                    type: true,
+                    groupId: true,
+                    students: {
+                        select: {
+                            id: true,
+                            firstName: true,
+                            lastName: true,
+                            email: true,
+                            phoneNumber: true,
+                            classLevel: true
+                        }
+                    },
                     feedBack: true
-                }
+                }     
             });
 
             return res.status(201).json({
