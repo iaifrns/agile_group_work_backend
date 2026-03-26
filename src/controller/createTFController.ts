@@ -15,7 +15,7 @@ import { TaskStatus, TaskCategory, TaskType } from "../generated/prisma";
 export const createTask = async (req: Request, res: Response) => {
     try {
         const userId = (req as any).user.id;
-        const { title, desc, status, category, type, students, groupId } = req.body;
+        const { title, desc, status, category, type, students: studentList, groupId } = req.body;
         
         //check required fields
         if (!title || !desc || !status || !category) {
@@ -53,15 +53,16 @@ export const createTask = async (req: Request, res: Response) => {
         }
 
         //check students array
-            if (!students || !Array.isArray(students) || students.length === 0 ) {
+            if (!studentList || !Array.isArray(studentList) || studentList.length === 0 ) {
                 return res.status(400).json({
                     success: false,
                     message: "Group tasks require at least one assigned student"
                 });
-            }        
+            }  
+            
 
         //verify for Group task
-        if (type === 'GROUP') {
+        if (type.includes('GROUP')) {
             //check groupID
             if (!groupId) {
                 return res.status(400).json({
@@ -96,9 +97,9 @@ export const createTask = async (req: Request, res: Response) => {
 
             //check if assigned students all belong to this group
             const memberIds = group.groupMembers.map(m => m.student_id);
-            const invalidAssignees = students.filter(id => !memberIds.includes(id));
+            const invalidAssignees = studentList.filter(id => !memberIds.includes(id));
 
-            if (invalidAssignees.length === students.length) {
+            if (invalidAssignees.length === studentList.length) {
                 return res.status(400).json({
                     success: false,
                     message: `These students are not members of the group: 
@@ -114,7 +115,7 @@ export const createTask = async (req: Request, res: Response) => {
                     category: category,
                     type: type,
                     students: {
-                        connect: students
+                        connect: studentList
                     },
                     groupId: group.id
                 },
@@ -135,15 +136,10 @@ export const createTask = async (req: Request, res: Response) => {
         }
 
         //verify personal task
-        if (type === 'PERSONAL') {
-            //if the task is unassigned, assign to own
-            const finalAssign = students && Array.isArray(students) 
-            && students.length > 0 ? students : [userId];
+        if (type.includes('PERSONAL')) {
 
-            //make sure creater in assignee
-            if (!finalAssign.includes(userId)) {
-                finalAssign.push(userId);
-            }
+            
+        console.error(studentList);
 
             //create task body
             const task = await prisma.task.create({
@@ -153,8 +149,8 @@ export const createTask = async (req: Request, res: Response) => {
                     status: status,
                     category: category,
                     type: type,
-                    sudents: {
-                        connect: students // link to students [{id: ""}]
+                    students: {
+                        connect: studentList // link to students: [{id: ""}]
                     },
                 },
                 include: {

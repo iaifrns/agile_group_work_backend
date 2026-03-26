@@ -17,7 +17,7 @@ model Student {
   classLevel   String?
   groupMembers GroupMembers[]
   feedBack FeedBack[]
-  Tasks Task[]
+  tasks Task[] @relation("TaskToStudent")
 }
 
 model GroupMembers {
@@ -45,8 +45,8 @@ model Task {
   status TaskStatus
   category TaskCategory
   type TaskType
-  groupId String
-  students Student[]
+  groupId String?
+  students Student[] @relation("TaskToStudent")
   feedBack FeedBack[]
   group  Group?   @relation(fields: [groupId], references: [id], onDelete: Cascade)
 }
