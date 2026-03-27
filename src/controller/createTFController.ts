@@ -5,25 +5,18 @@ import { TaskStatus, TaskCategory, TaskType } from "../generated/prisma";
 /*
  * Create Task Controller
  * Create Feedback Controller
- * 
+ * Get All Tasks Controller
+ * Get Single Task Controller
  * Update Task Controller
  * Update Feedback Controller
- *
+ * Delete Task Controller
  */
 
 //1.Create Task Controller
 export const createTask = async (req: Request, res: Response) => {
     try {
         const userId = (req as any).user.id;
-        const { title, desc, status, category, assign } = req.body;
-        
-        //check login status
-        if (!userId) {
-            return res.status(401).json({
-                success:false,
-                message: "Not authenticated"
-            });
-        }
+        const { title, desc, status, category, type, students: studentList, groupId } = req.body;
         
         //check required fields
         if (!title || !desc || !status || !category) {
@@ -51,34 +44,168 @@ export const createTask = async (req: Request, res: Response) => {
             });
         }
 
-        //check if assign is a valid array
-        if (assign && !Array.isArray(assign)) {
+        //check if type is valid
+        if (!Object.values(TaskType).includes(type)) {
             return res.status(400).json({
                 success: false,
-                message: "Assign must be an array of student Ids"
+                message: `Invalid type. Must be one of:
+                ${Object.values(TaskType).join(', ')}`
+            })
+        }
+
+        //check students array
+            if (!studentList || !Array.isArray(studentList) || studentList.length === 0 ) {
+                return res.status(400).json({
+                    success: false,
+                    message: "Group tasks require at least one assigned student"
+                });
+            }  
+            
+
+        //verify for Group task
+        if (type.includes('GROUP')) {
+            //check groupID
+            if (!groupId) {
+                return res.status(400).json({
+                    success: false,
+                    message: "Group tasks require a groupId"
+                });
+            }
+
+            //check if group exists
+            const group = await prisma.group.findUnique({
+                where: { id: groupId },
+                include: {
+                    groupMembers: true
+                }
+            });
+
+            if (!group) {
+                return res.status(404).json({
+                    success: false,
+                    message: "Group not found"
+                });
+            }
+
+            //check if current user is group member
+            const isMember = group.groupMembers.some(member => member.student_id ===userId);
+            if (!isMember) {
+                return res.status(403).json({
+                    success: false,
+                    message: "You must be a member of this group to create group task"
+                });
+            }
+
+            //check if assigned students all belong to this group
+            const memberIds = group.groupMembers.map(m => m.student_id);
+            const invalidAssignees = studentList.filter(id => !memberIds.includes(id));
+
+            if (invalidAssignees.length === studentList.length) {
+                return res.status(400).json({
+                    success: false,
+                    message: `These students are not members of the group: 
+                    ${invalidAssignees.join(', ')}`
+                });
+            }
+
+            const task = await prisma.task.create({
+                data: {
+                    title: title.trim(),
+                    desc: desc.trim(),
+                    status: status,
+                    category: category,
+                    type: type,
+                    students: {
+                        connect: studentList
+                    },
+                    groupId: group.id
+                },
+                select: {
+                    id: true,
+                    title: true,
+                    desc: true,
+                    status: true,
+                    category: true,
+                    type: true,
+                    groupId: true,
+                    students: {
+                        select: {
+                            id: true,
+                            firstName: true,
+                            lastName: true,
+                            email: true,
+                            phoneNumber: true,
+                            classLevel: true
+                        }
+                    },
+                    feedBack: true,
+                    group: {
+                        select: {
+                            id: true,
+                            name: true,
+                            admin: true,
+                            createdAt: true
+                        }
+                    }
+                }   
+            });
+
+            return res.status(201).json({
+                success: true,
+                message: "Group task created successfully",
+                data: {
+                    ...task,
+                    groupId: groupId
+                }
             });
         }
 
-        //create task body
-        const task = await prisma.task.create({
-            data: {
-                title: title.trim(),
-                desc: desc.trim(),
-                status: status,
-                category: category,
-                //assign: assign || [],
-                type: TaskType.GROUP
-            },
-            include: {
-                feedBack: true
-            }
-        });
+        //verify personal task
+        if (type.includes('PERSONAL')) {
+    
+        console.error(studentList);
 
-        return res.status(201).json({
-            success: true, 
-            message: "Task created successfully",
-            data: task
-        });
+            //create task body
+            const task = await prisma.task.create({
+                data: {
+                    title: title.trim(),
+                    desc: desc.trim(),
+                    status: status,
+                    category: category,
+                    type: type,
+                    students: {
+                        connect: studentList // link to students: [{id: ""}]
+                    },
+                },
+                select: {
+                    id: true,
+                    title: true,
+                    desc: true,
+                    status: true,
+                    category: true,
+                    type: true,
+                    groupId: true,
+                    students: {
+                        select: {
+                            id: true,
+                            firstName: true,
+                            lastName: true,
+                            email: true,
+                            phoneNumber: true,
+                            classLevel: true
+                        }
+                    },
+                    feedBack: true
+                }     
+            });
+
+            return res.status(201).json({
+                success: true, 
+                message: "Personal task created successfully",
+                data: task
+            });
+        }
+
 
     } catch (e) {
         console.error("Create task error:", e);
@@ -140,7 +267,7 @@ export const createFeedback = async (req: Request, res: Response) => {
                 taskId: taskId as string
             },
             include: {
-                //return student information
+                //return students information
                 student: {
                     select: {
                         id: true,
@@ -179,7 +306,7 @@ export const createFeedback = async (req: Request, res: Response) => {
 export const updateTask = async (req: Request, res: Response) => {
   try {
     const { taskId } = req.params;
-    const { title, desc, status, category, assign } = req.body;    
+    const { title, desc, status, category, sudent } = req.body;    
 
     //check if taskId exist
     if (!taskId) {
@@ -237,15 +364,15 @@ export const updateTask = async (req: Request, res: Response) => {
         }        
         updateData.category = category;
     }
-    if (assign) {
-        if (!Array.isArray(assign)) {
+    if (sudent) {
+        if (!Array.isArray(sudent)) {
             return res.status(400).json({
                 success: false,
-                message: "Assign must be an array of student Ids"
+                message: "sudent must be an array of student Ids"
             });
         }
-        updateData.assign = {
-            set: assign   //update into new array
+        updateData.sudent = {
+            set: sudent   //update into new array
         }
     }
 
@@ -269,7 +396,7 @@ export const updateTask = async (req: Request, res: Response) => {
         desc: true,
         status: true,
         category: true,
-        //assign: true,
+        //sudent: true,
       },
     });
 
@@ -338,5 +465,191 @@ export const deleteTask = async (req: Request, res: Response) => {
     } catch (error) {
         console.error("Delete task error:", error);
         return res.status(500).json({success: false, message: "Server error"});
+    }
+};
+
+export const getFeedbackForTask = async (req: Request, res: Response) => {
+    try {
+        const { taskId } = req.params;
+
+        // check if taskId is provided
+        if (!taskId) {
+            return res.status(400).json({
+                success: false,
+                message: "Task ID is required"
+            });
+        }
+
+        // check if task exists
+        const task = await prisma.task.findUnique({
+            where: { id: taskId as string },
+            select: {
+                id: true,
+                title: true
+            }
+        });
+
+        if (!task) {
+            return res.status(404).json({
+                success: false,
+                message: "Task not found"
+            });
+        }
+
+        // get all feedback for the task, newest first
+        const feedbacks = await prisma.feedBack.findMany({
+            where: {
+                taskId: taskId as string
+            },
+            orderBy: {
+                createdAt: "desc"
+            },
+            select: {
+                id: true,
+                message: true,
+                createdAt: true,
+                student: {
+                    select: {
+                        id: true,
+                        firstName: true,
+                        lastName: true,
+                        email: true
+                    }
+                }
+            }
+        });
+
+        return res.status(200).json({
+            success: true,
+            count: feedbacks.length,
+            task: task,
+            data: feedbacks
+        });
+
+    } catch (error) {
+        console.error("Get feedback for task error:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Server error"
+        });
+    }
+};
+
+
+// GET all tasks
+export const getAllTasks = async (req: Request, res: Response) => {
+    try {
+        const tasks = await prisma.task.findMany({
+            select: {
+                id: true,
+                title: true,
+                desc: true,
+                status: true,
+                category: true,
+                type: true,
+                _count: {
+                    select: {
+                        feedBack: true,
+                        students: true
+                    }
+                }
+            },
+            orderBy: {
+                title: "asc"
+            }
+        });
+
+        const formattedTasks = tasks.map((task) => ({
+            id: task.id,
+            title: task.title,
+            desc: task.desc,
+            status: task.status,
+            category: task.category,
+            type: task.type,
+            feedbackCount: task._count.feedBack,
+            studentsCount: task._count.students
+        }));
+
+        return res.status(200).json({
+            success: true,
+            count: formattedTasks.length,
+            data: formattedTasks
+        });
+    } catch (error) {
+        console.error("Get all tasks error:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Server error"
+        });
+    }
+};
+
+// GET single task by ID
+export const getTaskById = async (req: Request, res: Response) => {
+    try {
+        const { taskId } = req.params;
+
+        if (!taskId) {
+            return res.status(400).json({
+                success: false,
+                message: "Task ID is required"
+            });
+        }
+
+        const task = await prisma.task.findUnique({
+            where: {
+                id: taskId as string
+            },
+            select: {
+                id: true,
+                title: true,
+                desc: true,
+                status: true,
+                category: true,
+                type: true,
+                students: {
+                    select: {
+                        id: true,
+                        firstName: true,
+                        lastName: true,
+                        email: true,
+                        classLevel: true,
+                        phoneNumber: true
+                    }
+                },
+                feedBack: {
+                    select: {
+                        id: true,
+                        message: true,
+                        student: {
+                            select: {
+                                id: true,
+                                firstName: true,
+                                lastName: true,
+                                email: true
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        if (!task) {
+            return res.status(404).json({
+                success: false,
+                message: "Task not found"
+            });
+        }
+
+        return res.status(200).json({
+            success: true,
+            data: task
+        });
+    } catch (error) {
+        console.error("Get task by ID error:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Server error"
+        });
     }
 };

@@ -14,6 +14,18 @@ import { NAVIGATE } from "../types/navigate";
  * All operations require user to be Group Admin
  */
 
+type MemberList = {
+  student: {
+    id: string;
+    email: string;
+    firstName: string;
+    lastName: string;
+    password: string;
+    phoneNumber: string;
+    classLevel: string | null;
+  };
+};
+
 //Helper Function
 const getGroupVerifyAdmin = async (
   groupId: string | string[],
@@ -42,6 +54,24 @@ const getStudentName = async (student_id: string) => {
   });
 
   return student?.firstName + " " + student?.lastName;
+};
+
+const returnSTudentsId = (members: MemberList[]) => {
+  return members.map((member) => member.student.id);
+};
+
+//helper function to get all members of a group
+const getGroupMembers = async (groupId: string) => {
+  const members = await prisma.groupMembers.findMany({
+    where: {
+      group_id: groupId,
+    },
+    select: {
+      student: true,
+    },
+  });
+
+  return members;
 };
 
 //Get the Group details - Retrieves full group details - Does NOT require Admin
@@ -138,6 +168,8 @@ export const updateGroupName = async (req: Request, res: Response) => {
         select: { id: true, name: true, createdAt: true, admin: true },
       });
 
+      const members = await getGroupMembers(groupId as string);
+
       await transaction.notification.create({
         data: {
           message:
@@ -146,8 +178,13 @@ export const updateGroupName = async (req: Request, res: Response) => {
             user.lastName +
             " change the name of the group to " +
             name,
-          isRead: false,
+          isRead: [],
           navigate: NAVIGATE.GROUPDETAIL,
+          students: {
+            connect: returnSTudentsId(members).map((i) => {
+              return { id: i };
+            }),
+          },
         },
       });
       return updated;
@@ -205,18 +242,40 @@ export const addMemberToGroup = async (req: Request, res: Response) => {
         },
       });
 
-      await transaction.notification.create({
-        data: {
-          message:
-            student.firstName +
-            " " +
-            student.lastName +
-            " join the group " +
-            group.name,
-          isRead: false,
-          navigate: NAVIGATE.GROUPDETAIL,
-        },
-      });
+      const members = await getGroupMembers(groupId as string);
+
+      await Promise.all([
+        transaction.notification.create({
+          data: {
+            message:
+              student.firstName +
+              " " +
+              student.lastName +
+              " join the group " +
+              group.name,
+            isRead: [],
+            navigate: NAVIGATE.GROUPDETAIL,
+            students: {
+              connect: returnSTudentsId(members).map((i) => ({ id: i })),
+            },
+          },
+        }),
+        transaction.notification.create({
+          data: {
+            message:
+              student.firstName +
+              " " +
+              student.lastName +
+              " you have been added to " +
+              group.name,
+            isRead: [],
+            navigate: NAVIGATE.GROUPDETAIL,
+            students: {
+              connect: [{ id: studentId }],
+            },
+          },
+        }),
+      ]);
     });
 
     return res
@@ -254,14 +313,34 @@ export const removeMemberFromGroup = async (req: Request, res: Response) => {
 
     await prisma.$transaction(async (transaction) => {
       await transaction.groupMembers.delete({ where: { id: membership.id } });
-      const name = await getStudentName(studentId as string);
-      await transaction.notification.create({
-        data: {
-          message: "admin removed " + name + " from " + group.name + "group",
-          isRead: false,
-          navigate: NAVIGATE.GROUPDETAIL,
-        },
-      });
+
+      const [name, members] = await Promise.all([
+        getStudentName(studentId as string),
+        getGroupMembers(group.id),
+      ]);
+
+      await Promise.all([
+        transaction.notification.create({
+          data: {
+            message: "admin removed " + name + " from " + group.name + "group",
+            isRead: [],
+            navigate: NAVIGATE.GROUPDETAIL,
+            students: {
+              connect: returnSTudentsId(members).map((i) => ({ id: i })),
+            },
+          },
+        }),
+        transaction.notification.create({
+          data: {
+            message: "admin removed you from " + group.name + "group",
+            isRead: [],
+            navigate: NAVIGATE.GROUPDETAIL,
+            students: {
+              connect: [{ id: membership.student_id }],
+            },
+          },
+        }),
+      ]);
     });
 
     return res
@@ -281,7 +360,20 @@ export const deleteGroup = async (req: Request, res: Response) => {
     const group = await getGroupVerifyAdmin(groupId, user.id, res);
     if (!group) return;
 
-    await prisma.group.delete({ where: { id: groupId as string } });
+    await prisma.$transaction(async (transaction) => {
+      const members = await getGroupMembers(groupId as string);
+      await transaction.group.delete({ where: { id: groupId as string } });
+      await transaction.notification.create({
+        data: {
+          message: group.name + " was deleted",
+          isRead: [],
+          students: {
+            connect: returnSTudentsId(members).map((i) => ({ id: i })),
+          },
+          navigate: "",
+        },
+      });
+    });
 
     return res
       .status(200)
@@ -404,6 +496,17 @@ export const createGroup = async (req: Request, res: Response) => {
         },
       });
 
+      await tx.notification.create({
+        data: {
+          message: "group created successfully",
+          isRead: [],
+          students: {
+            connect: [{ id: student.id }],
+          },
+          navigate: NAVIGATE.GROUPDETAIL,
+        },
+      });
+
       return newGroup;
     });
 
@@ -480,12 +583,39 @@ export const sendJoinRequest = async (req: Request, res: Response) => {
       }
     }
 
-    const joinRequest = await prisma.groupMembers.create({
-      data: {
-        group_id: groupId as string,
-        student_id: studentId,
-        status: GroupStatus.REQUEST,
-      },
+    const joinRequest = await prisma.$transaction(async (transaction) => {
+      const joinRequest = await transaction.groupMembers.create({
+        data: {
+          group_id: groupId as string,
+          student_id: studentId,
+          status: GroupStatus.REQUEST,
+        },
+      });
+
+      await Promise.all([
+        transaction.notification.create({
+          data: {
+            message: "Join Request send to " + group.name,
+            isRead: [],
+            navigate: NAVIGATE.REQUESTLIST,
+            students: {
+              connect: [{ id: studentId }],
+            },
+          },
+        }),
+        transaction.notification.create({
+          data: {
+            message: "A request to join " + group.name + "was send",
+            isRead: [],
+            navigate: NAVIGATE.REQUESTLIST,
+            students: {
+              connect: [{ id: group.admin }],
+            },
+          },
+        }),
+      ]);
+
+      return joinRequest;
     });
 
     return res.status(201).json({

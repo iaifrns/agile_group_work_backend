@@ -17,8 +17,8 @@ model Student {
   classLevel   String?
   groupMembers GroupMembers[]
   feedBack FeedBack[]
-  Tasks Task[]
   notifications Notification[]
+  tasks Task[] @relation("TaskToStudent")
 }
 
 model GroupMembers {
@@ -36,6 +36,7 @@ model Group {
   createdAt    DateTime       @default(now())
   admin        String
   groupMembers GroupMembers[]
+  tasks Task[]
 }
 
 model Task {
@@ -45,10 +46,13 @@ model Task {
   status TaskStatus
   category TaskCategory
   type TaskType
-  students Student[]
+  groupId String?
+  students Student[] @relation("TaskToStudent")
   feedBack FeedBack[]
+  group  Group?   @relation(fields: [groupId], references: [id], onDelete: Cascade)
 }
 
+/*
 model FeedBack {
   id String @id @default(uuid())
   message String
@@ -56,6 +60,20 @@ model FeedBack {
   taskId String
   student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
   task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  I commented this model because without the CreatedAt the feedback won't be able to sort from newest to older
+}
+*/ 
+
+model FeedBack {
+  id        String   @id @default(uuid())
+  message   String
+  studentId String
+  taskId    String
+  createdAt DateTime @default(now())
+
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  task    Task    @relation(fields: [taskId], references: [id], onDelete: Cascade)
 }
 
 model Notification {

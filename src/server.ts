@@ -9,6 +9,7 @@ import groupRoute from "./routes/groupRoute";
 import requestRoute from "./routes/requestRoute";
 import createTFRoutes from "./routes/createTFRoute";
 import cookieParser from "cookie-parser";
+import notificationRoute from "./routes/notificationRoute"
 
 
 const app = express();
@@ -33,6 +34,7 @@ app.use("/auth", authRoute);
 app.use("/groups", groupRoute );
 app.use("/group_request",requestRoute)
 app.use("/tasks", createTFRoutes);
+app.use("/notification", notificationRoute)
 
 const port = 5002;
 
