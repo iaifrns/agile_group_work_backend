@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { prisma } from "../lib/prisma";
 import { GroupStatus } from "../generated/prisma";
 import { NAVIGATE } from "../types/navigate";
+import { getIo } from "../socket";
 
 /*
  * Group Controller
@@ -178,7 +179,6 @@ export const updateGroupName = async (req: Request, res: Response) => {
             user.lastName +
             " change the name of the group to " +
             name,
-          isRead: [],
           navigate: NAVIGATE.GROUPDETAIL,
           students: {
             connect: returnSTudentsId(members).map((i) => {
@@ -188,6 +188,12 @@ export const updateGroupName = async (req: Request, res: Response) => {
         },
       });
       return updated;
+    });
+
+    const io = getIo();
+
+    io.emit("notification", {
+      message: "new notification",
     });
 
     return res.status(200).json({ success: true, data: updated });
@@ -253,7 +259,6 @@ export const addMemberToGroup = async (req: Request, res: Response) => {
               student.lastName +
               " join the group " +
               group.name,
-            isRead: [],
             navigate: NAVIGATE.GROUPDETAIL,
             students: {
               connect: returnSTudentsId(members).map((i) => ({ id: i })),
@@ -276,6 +281,12 @@ export const addMemberToGroup = async (req: Request, res: Response) => {
           },
         }),
       ]);
+    });
+
+    const io = getIo();
+
+    io.emit("notification", {
+      message: "new notification",
     });
 
     return res
@@ -323,7 +334,6 @@ export const removeMemberFromGroup = async (req: Request, res: Response) => {
         transaction.notification.create({
           data: {
             message: "admin removed " + name + " from " + group.name + "group",
-            isRead: [],
             navigate: NAVIGATE.GROUPDETAIL,
             students: {
               connect: returnSTudentsId(members).map((i) => ({ id: i })),
@@ -333,7 +343,6 @@ export const removeMemberFromGroup = async (req: Request, res: Response) => {
         transaction.notification.create({
           data: {
             message: "admin removed you from " + group.name + "group",
-            isRead: [],
             navigate: NAVIGATE.GROUPDETAIL,
             students: {
               connect: [{ id: membership.student_id }],
@@ -341,6 +350,12 @@ export const removeMemberFromGroup = async (req: Request, res: Response) => {
           },
         }),
       ]);
+    });
+
+    const io = getIo();
+
+    io.emit("notification", {
+      message: "new notification",
     });
 
     return res
@@ -366,13 +381,18 @@ export const deleteGroup = async (req: Request, res: Response) => {
       await transaction.notification.create({
         data: {
           message: group.name + " was deleted",
-          isRead: [],
           students: {
             connect: returnSTudentsId(members).map((i) => ({ id: i })),
           },
           navigate: "",
         },
       });
+    });
+
+    const io = getIo();
+
+    io.emit("notification", {
+      message: "new notification",
     });
 
     return res
@@ -499,7 +519,6 @@ export const createGroup = async (req: Request, res: Response) => {
       await tx.notification.create({
         data: {
           message: "group created successfully",
-          isRead: [],
           students: {
             connect: [{ id: student.id }],
           },
@@ -508,6 +527,12 @@ export const createGroup = async (req: Request, res: Response) => {
       });
 
       return newGroup;
+    });
+
+    const io = getIo();
+
+    io.emit("notification", {
+      message: "new notification",
     });
 
     return res.status(201).json({
@@ -596,7 +621,6 @@ export const sendJoinRequest = async (req: Request, res: Response) => {
         transaction.notification.create({
           data: {
             message: "Join Request send to " + group.name,
-            isRead: [],
             navigate: NAVIGATE.REQUESTLIST,
             students: {
               connect: [{ id: studentId }],
@@ -606,7 +630,6 @@ export const sendJoinRequest = async (req: Request, res: Response) => {
         transaction.notification.create({
           data: {
             message: "A request to join " + group.name + "was send",
-            isRead: [],
             navigate: NAVIGATE.REQUESTLIST,
             students: {
               connect: [{ id: group.admin }],
@@ -616,6 +639,12 @@ export const sendJoinRequest = async (req: Request, res: Response) => {
       ]);
 
       return joinRequest;
+    });
+
+    const io = getIo();
+
+    io.emit("notification", {
+      message: "new notification",
     });
 
     return res.status(201).json({

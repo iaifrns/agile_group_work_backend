@@ -2,6 +2,7 @@ import type { Request, Response } from "express";
 import { prisma } from "../lib/prisma";
 import { GroupStatus } from "../generated/prisma";
 import { NAVIGATE } from "../types/navigate";
+import { getIo } from "../socket";
 
 /*
  * Request Controller
@@ -206,7 +207,6 @@ export const processJoinRequest = async (req: Request, res: Response) => {
         });
         await transaction.notification.create({
           data: {
-            isRead: [],
             message: "You were accepted in " + group.name + " congratulation",
             navigate: NAVIGATE.GROUPDETAIL,
             students: {
@@ -214,6 +214,12 @@ export const processJoinRequest = async (req: Request, res: Response) => {
             },
           },
         });
+      });
+
+      const io = getIo();
+
+      io.emit("notification", {
+        message: "new notification",
       });
 
       return res.status(200).json({
@@ -236,9 +242,8 @@ export const processJoinRequest = async (req: Request, res: Response) => {
         });
         await transaction.notification.create({
           data: {
-            isRead: [],
             message: "The request to join " + group.name + " was declined",
-            navigate: '',
+            navigate: "",
             students: {
               connect: [{ id: joinRequest.student.id }],
             },

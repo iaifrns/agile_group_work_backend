@@ -39,7 +39,6 @@ const register = async (req: Request, res: Response) => {
     await trans.notification.create({
       data: {
         message: "Welcome to Linko we are happy to have you here.",
-        isRead: [],
         students: {
           connect: [{ id: student.id }],
         },

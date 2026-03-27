@@ -1,5 +1,5 @@
 generator client {
-  provider = "prisma-client"
+  provider = "prisma-client-js"
   output   = "../src/generated/prisma"
 }
 
@@ -80,7 +80,7 @@ model Notification {
   id String @id @default(uuid())
   message String
   students Student[]
-  isRead String[]
+  isRead String[] @default([])
   navigate String
   createdAt DateTime @default(now())
 }
