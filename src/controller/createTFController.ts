@@ -16,15 +16,7 @@ import { TaskStatus, TaskCategory, TaskType } from "../generated/prisma";
 export const createTask = async (req: Request, res: Response) => {
     try {
         const userId = (req as any).user.id;
-        const { title, desc, status, category, assign } = req.body;
-        
-        //check login status
-        if (!userId) {
-            return res.status(401).json({
-                success:false,
-                message: "Not authenticated"
-            });
-        }
+        const { title, desc, status, category, type, students, groupId } = req.body;
         
         //check required fields
         if (!title || !desc || !status || !category) {
@@ -52,34 +44,133 @@ export const createTask = async (req: Request, res: Response) => {
             });
         }
 
-        //check if assign is a valid array
-        if (assign && !Array.isArray(assign)) {
+        //check if type is valid
+        if (!Object.values(TaskType).includes(type)) {
             return res.status(400).json({
                 success: false,
-                message: "Assign must be an array of student Ids"
+                message: `Invalid type. Must be one of:
+                ${Object.values(TaskType).join(', ')}`
+            })
+        }
+
+        //check students array
+            if (!students || !Array.isArray(students) || students.length === 0 ) {
+                return res.status(400).json({
+                    success: false,
+                    message: "Group tasks require at least one assigned student"
+                });
+            }        
+
+        //verify for Group task
+        if (type === 'GROUP') {
+            //check groupID
+            if (!groupId) {
+                return res.status(400).json({
+                    success: false,
+                    message: "Group tasks require a groupId"
+                });
+            }
+
+            //check if group exists
+            const group = await prisma.group.findUnique({
+                where: { id: groupId },
+                include: {
+                    groupMembers: true
+                }
+            });
+
+            if (!group) {
+                return res.status(404).json({
+                    success: false,
+                    message: "Group not found"
+                });
+            }
+
+            //check if current user is group member
+            const isMember = group.groupMembers.some(member => member.student_id ===userId);
+            if (!isMember) {
+                return res.status(403).json({
+                    success: false,
+                    message: "You must be a member of this group to create group task"
+                });
+            }
+
+            //check if assigned students all belong to this group
+            const memberIds = group.groupMembers.map(m => m.student_id);
+            const invalidAssignees = students.filter(id => !memberIds.includes(id));
+
+            if (invalidAssignees.length === students.length) {
+                return res.status(400).json({
+                    success: false,
+                    message: `These students are not members of the group: 
+                    ${invalidAssignees.join(', ')}`
+                });
+            }
+
+            const task = await prisma.task.create({
+                data: {
+                    title: title.trim(),
+                    desc: desc.trim(),
+                    status: status,
+                    category: category,
+                    type: type,
+                    students: {
+                        connect: students
+                    },
+                    groupId: group.id
+                },
+                include: {
+                    students: true,
+                    feedBack: true
+                }
+            });
+
+            return res.status(201).json({
+                success: true,
+                message: "Group task created successfully",
+                data: {
+                    ...task,
+                    groupId: groupId
+                }
             });
         }
 
-        //create task body
-        const task = await prisma.task.create({
-            data: {
-                title: title.trim(),
-                desc: desc.trim(),
-                status: status,
-                category: category,
-                //assign: assign || [],
-                type: TaskType.GROUP
-            },
-            include: {
-                feedBack: true
-            }
-        });
+        //verify personal task
+        if (type === 'PERSONAL') {
+            //if the task is unassigned, assign to own
+            const finalAssign = students && Array.isArray(students) 
+            && students.length > 0 ? students : [userId];
 
-        return res.status(201).json({
-            success: true, 
-            message: "Task created successfully",
-            data: task
-        });
+            //make sure creater in assignee
+            if (!finalAssign.includes(userId)) {
+                finalAssign.push(userId);
+            }
+
+            //create task body
+            const task = await prisma.task.create({
+                data: {
+                    title: title.trim(),
+                    desc: desc.trim(),
+                    status: status,
+                    category: category,
+                    type: type,
+                    sudents: {
+                        connect: students // link to students [{id: ""}]
+                    },
+                },
+                include: {
+                    students: true,
+                    feedBack: true
+                }
+            });
+
+            return res.status(201).json({
+                success: true, 
+                message: "Personal task created successfully",
+                data: task
+            });
+        }
+
 
     } catch (e) {
         console.error("Create task error:", e);
@@ -141,7 +232,7 @@ export const createFeedback = async (req: Request, res: Response) => {
                 taskId: taskId as string
             },
             include: {
-                //return student information
+                //return students information
                 student: {
                     select: {
                         id: true,
@@ -180,7 +271,7 @@ export const createFeedback = async (req: Request, res: Response) => {
 export const updateTask = async (req: Request, res: Response) => {
   try {
     const { taskId } = req.params;
-    const { title, desc, status, category, assign } = req.body;    
+    const { title, desc, status, category, sudent } = req.body;    
 
     //check if taskId exist
     if (!taskId) {
@@ -238,15 +329,15 @@ export const updateTask = async (req: Request, res: Response) => {
         }        
         updateData.category = category;
     }
-    if (assign) {
-        if (!Array.isArray(assign)) {
+    if (sudent) {
+        if (!Array.isArray(sudent)) {
             return res.status(400).json({
                 success: false,
-                message: "Assign must be an array of student Ids"
+                message: "sudent must be an array of student Ids"
             });
         }
-        updateData.assign = {
-            set: assign   //update into new array
+        updateData.sudent = {
+            set: sudent   //update into new array
         }
     }
 
@@ -270,7 +361,7 @@ export const updateTask = async (req: Request, res: Response) => {
         desc: true,
         status: true,
         category: true,
-        //assign: true,
+        //sudent: true,
       },
     });
 
