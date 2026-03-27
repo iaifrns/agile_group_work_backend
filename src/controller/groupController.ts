@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { prisma } from "../lib/prisma";
 import { GroupStatus } from "../generated/prisma";
+import { NAVIGATE } from "../types/navigate";
 
 /*
  * Group Controller
@@ -33,6 +34,16 @@ const getGroupVerifyAdmin = async (
   return group;
 };
 
+//helper function
+const getStudentName = async (student_id: string) => {
+  const student = await prisma.student.findUnique({
+    where: { id: student_id },
+    select: { firstName: true, lastName: true },
+  });
+
+  return student?.firstName + " " + student?.lastName;
+};
+
 //Get the Group details - Retrieves full group details - Does NOT require Admin
 export const getGroupDetails = async (req: Request, res: Response) => {
   try {
@@ -48,9 +59,9 @@ export const getGroupDetails = async (req: Request, res: Response) => {
         createdAt: true,
         admin: true,
         groupMembers: {
-            where: {
-                status: GroupStatus.MEMBER
-            },
+          where: {
+            status: GroupStatus.MEMBER,
+          },
           select: {
             student: {
               select: {
@@ -120,10 +131,26 @@ export const updateGroupName = async (req: Request, res: Response) => {
         .json({ success: false, message: "Forbidden (admin only)" });
     }
 
-    const updated = await prisma.group.update({
-      where: { id: groupId as string },
-      data: { name: name.trim() },
-      select: { id: true, name: true, createdAt: true, admin: true },
+    const updated = await prisma.$transaction(async (transaction) => {
+      const updated = await transaction.group.update({
+        where: { id: groupId as string },
+        data: { name: name.trim() },
+        select: { id: true, name: true, createdAt: true, admin: true },
+      });
+
+      await transaction.notification.create({
+        data: {
+          message:
+            user.firstName +
+            " " +
+            user.lastName +
+            " change the name of the group to " +
+            name,
+          isRead: false,
+          navigate: NAVIGATE.GROUPDETAIL,
+        },
+      });
+      return updated;
     });
 
     return res.status(200).json({ success: true, data: updated });
@@ -169,12 +196,27 @@ export const addMemberToGroup = async (req: Request, res: Response) => {
         .json({ success: false, message: "Student is already a member" });
     }
 
-    await prisma.groupMembers.create({
-      data: {
-        student_id: studentId,
-        group_id: groupId as string,
-        status: GroupStatus.MEMBER,
-      },
+    await prisma.$transaction(async (transaction) => {
+      await transaction.groupMembers.create({
+        data: {
+          student_id: studentId,
+          group_id: groupId as string,
+          status: GroupStatus.MEMBER,
+        },
+      });
+
+      await transaction.notification.create({
+        data: {
+          message:
+            student.firstName +
+            " " +
+            student.lastName +
+            " join the group " +
+            group.name,
+          isRead: false,
+          navigate: NAVIGATE.GROUPDETAIL,
+        },
+      });
     });
 
     return res
@@ -210,7 +252,17 @@ export const removeMemberFromGroup = async (req: Request, res: Response) => {
         .json({ success: false, message: "Membership not found." });
     }
 
-    await prisma.groupMembers.delete({ where: { id: membership.id } });
+    await prisma.$transaction(async (transaction) => {
+      await transaction.groupMembers.delete({ where: { id: membership.id } });
+      const name = await getStudentName(studentId as string);
+      await transaction.notification.create({
+        data: {
+          message: "admin removed " + name + " from " + group.name + "group",
+          isRead: false,
+          navigate: NAVIGATE.GROUPDETAIL,
+        },
+      });
+    });
 
     return res
       .status(200)

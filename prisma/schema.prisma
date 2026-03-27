@@ -18,6 +18,7 @@ model Student {
   groupMembers GroupMembers[]
   feedBack FeedBack[]
   Tasks Task[]
+  notifications Notification[]
 }
 
 model GroupMembers {
@@ -55,6 +56,15 @@ model FeedBack {
   taskId String
   student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
   task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+}
+
+model Notification {
+  id String @id @default(uuid())
+  message String
+  students Student[]
+  isRead String[]
+  navigate String
+  createdAt DateTime @default(now())
 }
 
 enum GroupStatus {

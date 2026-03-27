@@ -22,18 +22,33 @@ const register = async (req: Request, res: Response) => {
   const salt = await bcrypt.genSalt(10);
   const hashedPassword = await bcrypt.hash(password, salt);
 
-  const student = await prisma.student.create({
-    data: {
-      firstName,
-      lastName,
-      email,
-      password: hashedPassword,
-      phoneNumber,
-      classLevel,
-    },
-  });
+  const { student, token } = await prisma.$transaction(async (trans) => {
+    const student = await trans.student.create({
+      data: {
+        firstName,
+        lastName,
+        email,
+        password: hashedPassword,
+        phoneNumber,
+        classLevel,
+      },
+    });
 
-  const token = generator(student.id, res);
+    const token = generator(student.id, res);
+
+    await trans.notification.create({
+      data: {
+        message: "Welcome to Linko we are happy to have you here.",
+        isRead: false,
+        students: {
+          connect: [{ id: student.id }],
+        },
+        navigate: "profile",
+      },
+    });
+
+    return { student, token };
+  });
 
   res.json({
     status: "success",
