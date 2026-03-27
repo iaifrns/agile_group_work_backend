@@ -154,7 +154,7 @@ export const createTask = async (req: Request, res: Response) => {
                     status: status,
                     category: category,
                     type: type,
-                    sudents: {
+                    students: {
                         connect: students // link to students [{id: ""}]
                     },
                 },
