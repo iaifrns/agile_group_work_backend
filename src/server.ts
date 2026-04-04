@@ -1,17 +1,16 @@
+import cookieParser from "cookie-parser";
+import cors from "cors";
+import { config } from "dotenv";
+import "dotenv/config";
 import express from "express";
-import { Server } from "socket.io";
 import http from "http";
 import { prisma } from "./lib/prisma";
-import { config } from "dotenv";
-import cors from "cors";
-import "dotenv/config";
-import studentRoute from "./routes/studentRoute";
 import authRoute from "./routes/authRoute";
-import groupRoute from "./routes/groupRoute";
-import requestRoute from "./routes/requestRoute";
 import createTFRoutes from "./routes/createTFRoute";
-import cookieParser from "cookie-parser";
+import groupRoute from "./routes/groupRoute";
 import notificationRoute from "./routes/notificationRoute";
+import requestRoute from "./routes/requestRoute";
+import studentRoute from "./routes/studentRoute";
 import { initSocket } from "./socket";
 
 const app = express();

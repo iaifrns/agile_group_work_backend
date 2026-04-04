@@ -1,6 +1,7 @@
 import type { Request, Response } from "express";
 import { prisma } from "../lib/prisma";
 import { TaskStatus, TaskCategory, TaskType } from "../generated/prisma";
+import { getIo } from "../socket";
 
 /*
  * Create Task Controller
@@ -125,48 +126,86 @@ export const createTask = async (req: Request, res: Response) => {
         });
       }
 
-      const task = await prisma.task.create({
-        data: {
-          title: title.trim(),
-          desc: desc.trim(),
-          status: status,
-          category: category,
-          type: type,
-          students: {
-            connect: studentList,
+      const task = await prisma.$transaction(async (transaction) => {
+        const task = await transaction.task.create({
+          data: {
+            title: title.trim(),
+            desc: desc.trim(),
+            status: status,
+            category: category,
+            type: type,
+            students: {
+              connect: studentList,
+            },
+            groupId: group.id,
+            dueDate,
           },
-          groupId: group.id,
-          dueDate,
-        },
-        select: {
-          id: true,
-          title: true,
-          desc: true,
-          status: true,
-          category: true,
-          type: true,
-          groupId: true,
-          students: {
-            select: {
-              id: true,
-              firstName: true,
-              lastName: true,
-              email: true,
-              phoneNumber: true,
-              classLevel: true,
+          select: {
+            id: true,
+            title: true,
+            desc: true,
+            status: true,
+            category: true,
+            type: true,
+            groupId: true,
+            students: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+                phoneNumber: true,
+                classLevel: true,
+              },
+            },
+            feedBack: true,
+            dueDate: true,
+            group: {
+              select: {
+                id: true,
+                name: true,
+                admin: true,
+                createdAt: true,
+              },
             },
           },
-          feedBack: true,
-          dueDate: true,
-          group: {
-            select: {
-              id: true,
-              name: true,
-              admin: true,
-              createdAt: true,
+        });
+
+        await Promise.all([
+          transaction.notification.create({
+            data: {
+              message: "A new Task was create in " + group.name + " group",
+              navigate: "commitment",
+              students: {
+                connect: group.groupMembers.map((member) => {
+                  return { id: member.student_id };
+                }),
+              },
             },
-          },
-        },
+          }),
+          transaction.notification.create({
+            data: {
+              message:
+                "The Task " +
+                task.title +
+                " was Assign to you in " +
+                group.name +
+                " group",
+              navigate: "commitment",
+              students: {
+                connect: studentList,
+              },
+            },
+          }),
+        ]);
+
+        return task;
+      });
+
+      const io = getIo();
+
+      io.emit("notification", {
+        message: "new notification",
       });
 
       return res.status(201).json({
@@ -322,8 +361,9 @@ export const createFeedback = async (req: Request, res: Response) => {
 //3.Update Task Controller
 export const updateTask = async (req: Request, res: Response) => {
   try {
+    const user = (req as any).user;
     const { taskId } = req.params;
-    const { title, desc, status, category, student } = req.body;
+    const { title, desc, status, category, student, dueDate } = req.body;
 
     //check if taskId exist
     if (!taskId) {
@@ -393,6 +433,8 @@ export const updateTask = async (req: Request, res: Response) => {
       };
     }
 
+    updateData.dueDate = dueDate;
+
     //check if there is any field need to update
     if (Object.keys(updateData).length === 0) {
       return res.status(400).json({
@@ -401,20 +443,47 @@ export const updateTask = async (req: Request, res: Response) => {
       });
     }
 
-    //update database
-    const updateTask = await prisma.task.update({
-      where: {
-        id: taskId as string,
-      },
-      data: updateData,
-      select: {
-        id: true,
-        title: true,
-        desc: true,
-        status: true,
-        category: true,
-        //sudent: true,
-      },
+    const updateTask = await prisma.$transaction(async (transation) => {
+      //update database
+      const updateTask = await transation.task.update({
+        where: {
+          id: taskId as string,
+        },
+        data: updateData,
+        select: {
+          id: true,
+          title: true,
+          desc: true,
+          status: true,
+          category: true,
+          //sudent: true,
+          students: true,
+        },
+      });
+
+      await transation.notification.create({
+        data: {
+          message:
+            "The task " +
+            updateTask.title +
+            " was updated by " +
+            user.firstName +
+            " " +
+            user.lastName,
+          navigate: "commitment",
+          students: {
+            connect: updateTask.students,
+          },
+        },
+      });
+
+      return updateTask;
+    });
+
+    const io = getIo();
+
+    io.emit("notification", {
+      message: "new notification",
     });
 
     //return status message
@@ -500,9 +569,9 @@ export const updateTaskMembers = async (req: Request, res: Response) => {
       },
       data: {
         students: {
-            disconnect: oldmembers,
-            connect: members
-        }
+          disconnect: oldmembers,
+          connect: members,
+        },
       },
       select: {
         students: true,
@@ -567,6 +636,9 @@ export const deleteTask = async (req: Request, res: Response) => {
          */
     const adminGroup = await prisma.group.findFirst({
       where: { admin: user.id },
+      include: {
+        groupMembers: true,
+      },
     });
     if (!adminGroup) {
       return res
@@ -575,7 +647,26 @@ export const deleteTask = async (req: Request, res: Response) => {
     }
 
     // Delete task - feedback records removed automatically via cascade
-    await prisma.task.delete({ where: { id: taskId as string } });
+    await prisma.$transaction(async (transaction) => {
+      await transaction.task.delete({ where: { id: taskId as string } });
+      await transaction.notification.create({
+        data: {
+          message: "The task " + task.title + " was deleted",
+          navigate: "commitments",
+          students: {
+            connect: adminGroup.groupMembers.map((member) => {
+              return { id: member.student_id };
+            }),
+          },
+        },
+      });
+    });
+
+    const io = getIo();
+
+    io.emit("notification", {
+      message: "new notification",
+    });
 
     return res.status(200).json({ success: true, message: "Task Deleted" });
   } catch (error) {
