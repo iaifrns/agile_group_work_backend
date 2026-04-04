@@ -50,6 +50,8 @@ model Task {
   students Student[] @relation("TaskToStudent")
   feedBack FeedBack[]
   group  Group?   @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  dueDate DateTime
 }
 
 /*
