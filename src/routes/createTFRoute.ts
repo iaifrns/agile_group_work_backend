@@ -7,7 +7,8 @@ import {
     getTaskById,
     getFeedbackForTask,
     updateTask,
-    deleteTask
+    deleteTask,
+    updateTaskMembers
 } from '../controller/createTFController';
 import { authMiddleware } from '../middleware/authMiddleware';
 
@@ -17,16 +18,19 @@ const router = express.Router();
 router.post('/create', authMiddleware, createTask);
 
 //POST - create feedback
-router.post('/:taskId/feedback', authMiddleware, createFeedback);
+router.post('/feedback/:taskId', authMiddleware, createFeedback);
 
 //PUT - update task
 router.put('/update/:taskId', authMiddleware, updateTask);
+
+//PUT - update task members
+router.put('/update_members/:taskId', authMiddleware, updateTaskMembers);
 
 //DELETE - delete task (admin only)
 router.delete('/delete/:taskId', authMiddleware, deleteTask);
 
 // GET- get all feedback for task
-router.get('/:taskId/feedback', authMiddleware, getFeedbackForTask);
+router.get('/feedback/:taskId', authMiddleware, getFeedbackForTask);
 
 // GET - all tasks
 router.get('/', authMiddleware, getAllTasks);

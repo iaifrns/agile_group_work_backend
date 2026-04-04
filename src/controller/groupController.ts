@@ -681,6 +681,7 @@ export const getAllGroupsAStudentIsIn = async (req: Request, res: Response) => {
       select: {
         id: true,
         name: true,
+        admin: true
       },
     });
 

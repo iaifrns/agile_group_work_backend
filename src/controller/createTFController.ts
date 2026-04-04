@@ -453,6 +453,98 @@ export const updateTask = async (req: Request, res: Response) => {
   }
 };
 
+//3.Update Task assign Controller
+export const updateTaskMembers = async (req: Request, res: Response) => {
+  try {
+    const { taskId } = req.params;
+    const { members, oldmembers } = req.body;
+
+    //check if taskId exist
+    if (!taskId) {
+      return res.status(400).json({
+        success: false,
+        message: "Task ID is required",
+      });
+    }
+
+    //check if req.body exist
+    if (!req.body) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Request body is missing. Maybe forget Content-Type: application/json?",
+      });
+    }
+
+    //check if req.body contains data
+    if (Object.keys(req.body).length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Empty request body. Provide at least one field to update.",
+      });
+    }
+
+    if (members) {
+      if (!Array.isArray(members)) {
+        return res.status(400).json({
+          success: false,
+          message: "sudent must be an array of student Ids",
+        });
+      }
+    }
+
+    //update database
+    const updateTask = await prisma.task.update({
+      where: {
+        id: taskId as string,
+      },
+      data: {
+        students: {
+            disconnect: oldmembers,
+            connect: members
+        }
+      },
+      select: {
+        students: true,
+      },
+    });
+
+    //return status message
+    res.status(200).json({
+      success: true,
+      message: "Task updated successfully",
+      data: updateTask,
+    });
+  } catch (error) {
+    console.error("Update task error:", error);
+
+    if (error && typeof error === "object" && "code" in error) {
+      const prismaError = error as { code: string };
+
+      //P2025 in Prisma = 'Record to update not found'
+      if (prismaError.code === "P2025") {
+        return res.status(404).json({
+          success: false,
+          message: "Task not found",
+        });
+      }
+
+      //other Prisma errors
+      if (prismaError.code?.startsWith("P")) {
+        return res.status(400).json({
+          success: false,
+          message: `Database error: ${error.code}`,
+        });
+      }
+
+      res.status(500).json({
+        success: false,
+        message: "Server error",
+      });
+    }
+  }
+};
+
 // Delete Task - Admin Only
 export const deleteTask = async (req: Request, res: Response) => {
   const user = (req as any).user;
@@ -652,6 +744,7 @@ export const getTaskById = async (req: Request, res: Response) => {
           select: {
             id: true,
             message: true,
+            createdAt: true,
             student: {
               select: {
                 id: true,
