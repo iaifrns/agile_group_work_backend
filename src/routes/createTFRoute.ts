@@ -3,12 +3,13 @@ import express from 'express';
 import {
     createTask,
     createFeedback,
-    getAllTasks,
+    getAllGroupTasks,
     getTaskById,
     getFeedbackForTask,
     updateTask,
     deleteTask,
-    updateTaskMembers
+    updateTaskMembers,
+    getMyTasks
 } from '../controller/createTFController';
 import { authMiddleware } from '../middleware/authMiddleware';
 
@@ -33,7 +34,10 @@ router.delete('/delete/:taskId', authMiddleware, deleteTask);
 router.get('/feedback/:taskId', authMiddleware, getFeedbackForTask);
 
 // GET - all tasks
-router.get('/', authMiddleware, getAllTasks);
+router.get('/group/:groupId', authMiddleware, getAllGroupTasks);
+
+// GET - all my tasks
+router.get('/my_tasks', authMiddleware, getMyTasks);
 
 // GET - single task by ID
 router.get('/:taskId', authMiddleware, getTaskById);

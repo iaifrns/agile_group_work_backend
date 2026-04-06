@@ -222,40 +222,60 @@ export const createTask = async (req: Request, res: Response) => {
     if (type.includes("PERSONAL")) {
       console.error(studentList);
 
-      //create task body
-      const task = await prisma.task.create({
-        data: {
-          title: title.trim(),
-          desc: desc.trim(),
-          status: status,
-          category: category,
-          type: type,
-          students: {
-            connect: studentList, // link to students: [{id: ""}]
+      //create task body and notify
+      const task = await prisma.$transaction(async (transaction) => {
+        const task = await transaction.task.create({
+          data: {
+            title: title.trim(),
+            desc: desc.trim(),
+            status: status,
+            category: category,
+            type: type,
+            students: {
+              connect: studentList, // link to students: [{id: ""}]
+            },
+            dueDate,
           },
-          dueDate,
-        },
-        select: {
-          id: true,
-          title: true,
-          desc: true,
-          status: true,
-          category: true,
-          type: true,
-          groupId: true,
-          students: {
-            select: {
-              id: true,
-              firstName: true,
-              lastName: true,
-              email: true,
-              phoneNumber: true,
-              classLevel: true,
+          select: {
+            id: true,
+            title: true,
+            desc: true,
+            status: true,
+            category: true,
+            type: true,
+            groupId: true,
+            students: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+                phoneNumber: true,
+                classLevel: true,
+              },
+            },
+            feedBack: true,
+            dueDate: true,
+          },
+        });
+
+        await transaction.notification.create({
+          data: {
+            message: "task " + task.title + " created successfully",
+            navigate: "commitment",
+            students: {
+              connect: [{ id: userId }],
             },
           },
-          feedBack: true,
-          dueDate: true,
-        },
+        });
+
+        return task;
+      });
+
+      const io = getIo();
+
+      io.emit("notification", {
+        message: "new notification",
       });
 
       return res.status(201).json({
@@ -634,16 +654,21 @@ export const deleteTask = async (req: Request, res: Response) => {
         Admin check - User must be admin of at least oen group
         Once Task has groupId, update this method
          */
-    const adminGroup = await prisma.group.findFirst({
-      where: { admin: user.id },
-      include: {
-        groupMembers: true,
-      },
-    });
-    if (!adminGroup) {
-      return res
-        .status(403)
-        .json({ success: false, message: "Forbidden. Admin Only" });
+    let adminGroup;
+    if (task.type == "GROUP") {
+      adminGroup = await prisma.group.findFirst({
+        where: { admin: user.id },
+        include: {
+          groupMembers: true,
+        },
+      });
+      if (!adminGroup) {
+        return res
+          .status(403)
+          .json({ success: false, message: "Forbidden. Admin Only" });
+      }
+    } else {
+      adminGroup = { groupMembers: [user] };
     }
 
     // Delete task - feedback records removed automatically via cascade
@@ -655,7 +680,7 @@ export const deleteTask = async (req: Request, res: Response) => {
           navigate: "commitments",
           students: {
             connect: adminGroup.groupMembers.map((member) => {
-              return { id: member.student_id };
+              return { id: member.student_id ? member.student_id : member.id };
             }),
           },
         },
@@ -741,10 +766,107 @@ export const getFeedbackForTask = async (req: Request, res: Response) => {
   }
 };
 
-// GET all tasks
-export const getAllTasks = async (req: Request, res: Response) => {
+// GET all group tasks
+export const getAllGroupTasks = async (req: Request, res: Response) => {
   try {
+    const { groupId } = req.params;
+    const user = (req as any).user;
+
+    const group = await prisma.group.findUnique({
+      where: {
+        id: groupId as string,
+      },
+    });
+
+    if (!group) {
+      return res.status(404).json({
+        success: false,
+        message: "This group does not exist",
+      });
+    }
+
+    const groupMember = await prisma.groupMembers.findFirst({
+      where: {
+        group_id: groupId as string,
+        student_id: user.id,
+      },
+    });
+
+    if (!groupMember) {
+      return res.status(409).json({
+        success: false,
+        message: "Unauthorize this is only for the group members",
+      });
+    }
+
     const tasks = await prisma.task.findMany({
+      where: {
+        type: "GROUP",
+        groupId: groupId as string,
+      },
+      select: {
+        id: true,
+        title: true,
+        desc: true,
+        status: true,
+        category: true,
+        type: true,
+        _count: {
+          select: {
+            feedBack: true,
+            students: true,
+          },
+        },
+        students: true,
+        dueDate: true,
+        createdAt: true,
+      },
+      orderBy: {
+        createdAt: "asc",
+      },
+    });
+
+    const formattedTasks = tasks.map((task) => ({
+      id: task.id,
+      title: task.title,
+      desc: task.desc,
+      status: task.status,
+      category: task.category,
+      type: task.type,
+      feedbackCount: task._count.feedBack,
+      studentsCount: task._count.students,
+      students: task.students,
+      due: task.dueDate,
+      createdAt: task.createdAt,
+    }));
+
+    return res.status(200).json({
+      success: true,
+      count: formattedTasks.length,
+      data: formattedTasks,
+    });
+  } catch (error) {
+    console.error("Get all tasks error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+};
+
+// GET all person tasks
+export const getMyTasks = async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    const tasks = await prisma.task.findMany({
+      where: {
+        type: "PERSONAL",
+        students: {
+          some: {
+            id: user.id,
+          },
+        },
+      },
       select: {
         id: true,
         title: true,
