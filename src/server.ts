@@ -11,13 +11,14 @@ import groupRoute from "./routes/groupRoute";
 import notificationRoute from "./routes/notificationRoute";
 import requestRoute from "./routes/requestRoute";
 import studentRoute from "./routes/studentRoute";
+import scheduleRouter from "./routes/scheduleRoute";
 import { initSocket } from "./socket";
 
 const app = express();
 const server = http.createServer(app);
 
 //socket io
-initSocket(server)
+initSocket(server);
 
 config();
 prisma.$connect();
@@ -40,6 +41,7 @@ app.use("/groups", groupRoute);
 app.use("/group_request", requestRoute);
 app.use("/tasks", createTFRoutes);
 app.use("/notification", notificationRoute);
+app.use("/schedule", scheduleRouter);
 
 const port = 5002;
 
@@ -48,8 +50,8 @@ app.listen(port, () => {
 });
 
 server.listen(5001, () => {
-  console.log("socket runing on port 5001")
-})
+  console.log("socket runing on port 5001");
+});
 
 process.on("unhandledRejection", (e) => {
   console.log("an unhandle rejection error occured ", e);

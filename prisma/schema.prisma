@@ -19,6 +19,7 @@ model Student {
   feedBack FeedBack[]
   notifications Notification[]
   tasks Task[] @relation("TaskToStudent")
+  schedule Schedule[]
 }
 
 model GroupMembers {
@@ -37,6 +38,7 @@ model Group {
   admin        String
   groupMembers GroupMembers[]
   tasks Task[]
+  schedules Schedule[]
 }
 
 model Task {
@@ -85,6 +87,18 @@ model Notification {
   isRead String[] @default([])
   navigate String
   createdAt DateTime @default(now())
+}
+
+model Schedule {
+  id String @id @default(uuid())
+  title String
+  desc String
+  createAt DateTime @default(now())
+  date DateTime
+  group_id String?
+  user_id String
+  group Group? @relation(fields: [group_id], references: [id], onDelete: Cascade)
+  user Student @relation(fields: [user_id], references: [id], onDelete: Cascade)
 }
 
 enum GroupStatus {
