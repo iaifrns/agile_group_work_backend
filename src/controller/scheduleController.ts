@@ -56,6 +56,9 @@ export const createSchedule = async (req: Request, res: Response) => {
           group_id: group.id,
           user_id: user.id,
         },
+        include:{
+            group: true
+        }
       });
 
       return res.json({
