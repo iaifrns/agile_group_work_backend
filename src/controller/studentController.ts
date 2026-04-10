@@ -29,7 +29,7 @@ export const getUserProfile = async (req: Request, res: Response) => {
     if (!user) {
       return res.status(404).json({
         success: false,
-        message: "The student do not exists.",
+        message: "The student does not exist.",
       });
     }
 
@@ -41,7 +41,7 @@ export const getUserProfile = async (req: Request, res: Response) => {
     console.error("Fail to fetch student data: ", error);
     res.status(500).json({
       success: false,
-      message: "server error",
+      message: "Server error",
     });
   }
 };
@@ -115,7 +115,7 @@ export const updateUserProfile = async (req: Request, res: Response) => {
     if (!firstName && !lastName && !phoneNumber && !classLevel) {
       return res.status(400).json({
         success: false,
-        message: "No fileds to update provided",
+        message: "No valid fields to update provided",
       });
     }
 
