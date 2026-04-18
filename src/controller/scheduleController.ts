@@ -56,9 +56,9 @@ export const createSchedule = async (req: Request, res: Response) => {
           group_id: group.id,
           user_id: user.id,
         },
-        include:{
-            group: true
-        }
+        include: {
+          group: true,
+        },
       });
 
       return res.json({
@@ -98,7 +98,13 @@ export const getAllSchedules = async (req: Request, res: Response) => {
       where: {
         OR: [
           { user_id: user.id },
-          { group: { groupMembers: { some: { student_id: user.id } } } },
+          {
+            group: {
+              groupMembers: {
+                some: { AND: [{ student_id: user.id }, { status: "MEMBER" }] },
+              },
+            },
+          },
         ],
       },
       include: {

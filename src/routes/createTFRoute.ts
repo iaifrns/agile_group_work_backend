@@ -1,15 +1,16 @@
 import express from 'express';
 //import {createTask, createFeedback, updateTask, deleteTask} from '../controller/createTFController';
 import {
-    createTask,
     createFeedback,
-    getAllGroupTasks,
-    getTaskById,
-    getFeedbackForTask,
-    updateTask,
+    createTask,
     deleteTask,
-    updateTaskMembers,
-    getMyTasks
+    getAllGroupTasks,
+    getAllTasks,
+    getFeedbackForTask,
+    getMyTasks,
+    getTaskById,
+    updateTask,
+    updateTaskMembers
 } from '../controller/createTFController';
 import { authMiddleware } from '../middleware/authMiddleware';
 
@@ -38,6 +39,9 @@ router.get('/group/:groupId', authMiddleware, getAllGroupTasks);
 
 // GET - all my tasks
 router.get('/my_tasks', authMiddleware, getMyTasks);
+
+//GET - get all tasks either group or personal
+router.get('/get_all_task', authMiddleware, getAllTasks)
 
 // GET - single task by ID
 router.get('/:taskId', authMiddleware, getTaskById);

@@ -2,6 +2,7 @@ import type { Request, Response } from "express";
 import { prisma } from "../lib/prisma";
 import { TaskStatus, TaskCategory, TaskType } from "../generated/prisma";
 import { getIo } from "../socket";
+import { group } from "console";
 
 /*
  * Create Task Controller
@@ -981,6 +982,44 @@ export const getTaskById = async (req: Request, res: Response) => {
     return res.status(200).json({
       success: true,
       data: task,
+    });
+  } catch (error) {
+    console.error("Get task by ID error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+};
+
+export const getAllTasks = async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    console.log("Backend here i am");
+    console.log(user, "Backend to front");
+    const tasks = await prisma.task.findMany({
+      where: {
+        students: {
+          some: {
+            id: user.id,
+          },
+        },
+        OR: [
+          { type: "PERSONAL" },
+          {
+            group: {
+              groupMembers: {
+                some: { AND: [{ student_id: user.id }, { status: "MEMBER" }] },
+              },
+            },
+          },
+        ],
+      },
+    });
+
+    return res.json({
+      success: true,
+      data: tasks,
     });
   } catch (error) {
     console.error("Get task by ID error:", error);
