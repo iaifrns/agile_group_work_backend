@@ -4,11 +4,13 @@ import { generator } from "../util/generateToken";
 import bcrypt from "bcryptjs";
 import type { Request, Response } from "express";
 
+// Register a new student user
 const register = async (req: Request, res: Response) => {
   const { firstName, lastName, email, password, phoneNumber, classLevel } =
     req.body;
 
   console.log(email);
+  // Check if user already exists
   const user = await prisma.student.findUnique({
     where: { email: email },
   });
@@ -19,9 +21,11 @@ const register = async (req: Request, res: Response) => {
     });
   }
 
+  // Hash password before storing
   const salt = await bcrypt.genSalt(10);
   const hashedPassword = await bcrypt.hash(password, salt);
 
+  // Transaction: create student, generate token, and create welcome notification
   const { student, token } = await prisma.$transaction(async (trans) => {
     const student = await trans.student.create({
       data: {
@@ -36,6 +40,7 @@ const register = async (req: Request, res: Response) => {
 
     const token = generator(student.id, res);
 
+    // Create welcome notification for the new student
     await trans.notification.create({
       data: {
         message: "Welcome to Linko we are happy to have you here.",
@@ -60,9 +65,11 @@ const register = async (req: Request, res: Response) => {
   });
 };
 
+// Login existing student user
 const login = async (req: Request, res: Response) => {
   const { email, password } = req.body;
 
+  // Find student by email
   const student = await prisma.student.findUnique({
     where: { email },
   });
@@ -71,12 +78,14 @@ const login = async (req: Request, res: Response) => {
     return res.json({ error: "Invalide email or password" });
   }
 
+  // Verify password
   const compare = await bcrypt.compare(password, student.password);
 
   if (!compare) {
     return res.json({ error: "Invalide email or password" });
   }
 
+  // Generate and set auth token
   const token = generator(student.id, res);
 
   res.json({
@@ -90,6 +99,7 @@ const login = async (req: Request, res: Response) => {
   });
 };
 
+// Logout student - clear auth cookie
 const logout = async (req: Request, res: Response) => {
   res.cookie("token", "", {
     httpOnly: true,
@@ -102,6 +112,7 @@ const logout = async (req: Request, res: Response) => {
   });
 };
 
+// Verify JWT token validity
 const check_token = (req: Request, res: Response) => {
   try {
     const token = req.cookies.token;

@@ -1,10 +1,22 @@
-// test/controllers/studentController.test.ts
-import { prismaMock } from '../__mocks__/prisma'
-import { getUserProfile, updateUserProfile } from '../../src/controller/studentController'
+
+jest.mock('../../lib/prisma', () => {
+    const { mockDeep } = require('jest-mock-extended');
+    const prismaMock = mockDeep();
+    return {
+        prisma: prismaMock
+    };
+});
+
+//import { prismaMock } from '../__mocks__/prisma';
+import { prisma } from '../../lib/prisma';
+import { getUserProfile, updateUserProfile } from '../../controller/studentController'
+
+const prismaMock = prisma as any;
 
 beforeEach(() => {
     jest.clearAllMocks();
     prismaMock.student.findUnique.mockReset();
+    prismaMock.student.update.mockReset();
 })
 
 // ===========================================
@@ -22,7 +34,7 @@ describe('getUserProfile', () => {
       status: jest.fn().mockReturnThis(),
       json: jest.fn()
     }
-    jest.clearAllMocks()
+    jest.clearAllMocks();
   })
 
   // Test 1: Successfully get user
@@ -41,6 +53,7 @@ describe('getUserProfile', () => {
 
     await getUserProfile(req, res)
 
+    // Verify correct query with expected select fields
     expect(prismaMock.student.findUnique).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { id: 'test-user-id' },
@@ -141,7 +154,7 @@ describe('updateUserProfile', () => {
     })
   })
 
-  // Test 2: Not authenticated
+  // Test 2: Not authenticated (skipped)
   it.skip('should return 400 when user is not authenticated', async () => {
     req.user = undefined
     req.body = { firstName: 'NewName' }
@@ -155,7 +168,7 @@ describe('updateUserProfile', () => {
     })
   })
 
-  // Test 3: Trying to update another user's profile
+  // Test 3: Trying to update another user's profile (skipped)
   it.skip('should return 400 when trying to update another user profile', async () => {
     req.params.userId = 'other-user-id'
     req.body = { firstName: 'NewName' }
@@ -178,7 +191,7 @@ describe('updateUserProfile', () => {
     })
   })
 
-  // Test 5: User not found (P2025 error)
+  // Test 5: User not found (P2025 error) (skipped)
   it.skip('should return 404 when updating non-existent user', async () => {
     req.body = { firstName: 'NewName' }
     
@@ -208,7 +221,8 @@ describe('updateUserProfile', () => {
     })
   })
 
-    it('should return 400 when request body is missing', async () => {
+  // Test 7: Request body is missing/null
+  it('should return 400 when request body is missing', async () => {
     req.body = null
 
     await updateUserProfile(req, res)
@@ -221,4 +235,3 @@ describe('updateUserProfile', () => {
   })
 
 })
-

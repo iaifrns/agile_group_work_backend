@@ -8,6 +8,7 @@ import { prisma } from "../lib/prisma";
  *
  */
 
+// Get a single student's profile by ID
 export const getUserProfile = async (req: Request, res: Response) => {
   try {
     const userId = req.params.userId;
@@ -46,14 +47,15 @@ export const getUserProfile = async (req: Request, res: Response) => {
   }
 };
 
+// Get all students except the authenticated user
 export const getAllStudents = async (req: Request, res: Response) => {
   try {
-    const user = (req as any).user;
+    const user = (req as any).user; // Authenticated user from middleware
 
     const students = await prisma.student.findMany({
       where: {
         NOT: {
-          id: user.id,
+          id: user.id, // Exclude current user from results
         },
       },
       select: {
@@ -77,13 +79,12 @@ export const getAllStudents = async (req: Request, res: Response) => {
   }
 };
 
-//update user profile info
+// Update user profile information (excluding email)
 export const updateUserProfile = async (req: Request, res: Response) => {
   try {
-    //get user id and
     const userId = req.params.userId;
 
-    //check if req.body exist
+    // Validate request body exists
     if (!req.body) {
       return res.status(400).json({
         success: false,
@@ -92,10 +93,10 @@ export const updateUserProfile = async (req: Request, res: Response) => {
       });
     }
 
-    //get update body (not include email)
+    // Extract updatable fields (email cannot be updated)
     const { firstName, lastName, phoneNumber, classLevel } = req.body;
 
-    //check if req.body contains data
+    // Check if request body has any data
     if (Object.keys(req.body).length === 0) {
       return res.status(400).json({
         success: false,
@@ -103,7 +104,7 @@ export const updateUserProfile = async (req: Request, res: Response) => {
       });
     }
 
-    //only update own profile
+    // Only update own profile (commented out)
     //if (req.user.id !== userId) {
     //  return res.status(403).json({
     //    success: false,
@@ -111,7 +112,7 @@ export const updateUserProfile = async (req: Request, res: Response) => {
     //});
     //}
 
-    //check if any field updates
+    // Ensure at least one valid field is provided for update
     if (!firstName && !lastName && !phoneNumber && !classLevel) {
       return res.status(400).json({
         success: false,
@@ -119,14 +120,13 @@ export const updateUserProfile = async (req: Request, res: Response) => {
       });
     }
 
-    //get updated items (only those with values)
+    // Build update object with only fields that have values (trim whitespace)
     const updateData = {
       firstName: "",
       lastName: "",
       phoneNumber: "",
       classLevel: "",
     };
-    // if one item === null or undefined (trim blank)
     if (firstName?.trim()) {
       updateData.firstName = firstName.trim();
     }
@@ -140,7 +140,7 @@ export const updateUserProfile = async (req: Request, res: Response) => {
       updateData.classLevel = classLevel.trim();
     }
 
-    //update database
+    // Update the student record in database
     const updateUser = await prisma.student.update({
       where: {
         id: `${userId}`,
@@ -156,7 +156,6 @@ export const updateUserProfile = async (req: Request, res: Response) => {
       },
     });
 
-    //return status message
     res.status(200).json({
       success: true,
       message: "Profile updated successfully",
@@ -168,7 +167,7 @@ export const updateUserProfile = async (req: Request, res: Response) => {
     if (error && typeof error === "object" && "code" in error) {
       const prismaError = error as { code: string };
 
-      //P2025 in Prisma = 'Record to update not found'
+      // P2025 in Prisma = 'Record to update not found'
       if (prismaError.code === "P2025") {
         return res.status(404).json({
           success: false,
@@ -176,7 +175,7 @@ export const updateUserProfile = async (req: Request, res: Response) => {
         });
       }
 
-      //other Prisma errors
+      // Handle other Prisma errors
       if (prismaError.code?.startsWith("P")) {
         return res.status(400).json({
           success: false,
@@ -192,10 +191,12 @@ export const updateUserProfile = async (req: Request, res: Response) => {
   }
 };
 
+// Get all students who are NOT members of a specific group
 export const getAllStudentsNotInGroup = async (req: Request, res: Response) => {
   try{
     const groupId = req.params.groupId
 
+    // Verify group exists
     const group = await prisma.group.findUnique({
       where: {
         id: groupId as string
@@ -203,17 +204,17 @@ export const getAllStudentsNotInGroup = async (req: Request, res: Response) => {
     })
 
     if (!group) {
-      // Return 404 if it doesn't exist
       return res
         .status(404)
         .json({ success: false, message: "Group not found." });
     }
 
+    // Find students with no membership record for this group
     const students  = await prisma.student.findMany({
       where:{
         groupMembers:{
           none:{
-            group_id: groupId as string,
+            group_id: groupId as string, // Student is not associated with this group
           }
         }
       },

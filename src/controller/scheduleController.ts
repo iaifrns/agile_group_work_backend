@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { prisma } from "../lib/prisma";
 
-//util funciton
+// Utility function: Check if group exists and current user is admin
 const checkIfGroupExistAndIsAdmin = async (
   req: Request,
   res: Response,
@@ -32,12 +32,13 @@ const checkIfGroupExistAndIsAdmin = async (
   return group;
 };
 
-// create schedule: this goes for both personal and group
+// Create schedule: supports both personal and group schedules
 export const createSchedule = async (req: Request, res: Response) => {
   try {
-    const user = (req as any).user;
+    const user = (req as any).user; // Authenticated user from middleware
     const { title, desc, date, groupId } = req.body;
 
+    // If groupId provided, create a group schedule (admin only)
     if (groupId) {
       const group = await checkIfGroupExistAndIsAdmin(
         req,
@@ -67,6 +68,7 @@ export const createSchedule = async (req: Request, res: Response) => {
       });
     }
 
+    // Create a personal schedule
     const schedule = await prisma.schedule.create({
       data: {
         title: title,
@@ -89,22 +91,23 @@ export const createSchedule = async (req: Request, res: Response) => {
   }
 };
 
-//get all schedule
+// Get all schedules (personal + group schedules user has access to)
 export const getAllSchedules = async (req: Request, res: Response) => {
   try {
-    const user = (req as any).user;
+    const user = (req as any).user; // Authenticated user from middleware
 
+    // Fetch personal schedules AND group schedules where user is a member
     const schedules = await prisma.schedule.findMany({
       where: {
         OR: [
-          { user_id: user.id },
+          { user_id: user.id }, // Personal schedules
           {
             group: {
               groupMembers: {
-                some: { AND: [{ student_id: user.id }, { status: "MEMBER" }] },
+                some: { AND: [{ student_id: user.id }, { status: "MEMBER" }] }, // User is an approved group member
               },
             },
-          },
+          }, // Group schedules
         ],
       },
       include: {
@@ -126,20 +129,21 @@ export const getAllSchedules = async (req: Request, res: Response) => {
   }
 };
 
-// get one schedule
+// Get a single schedule by ID with access control
 export const getASchedule = async (req: Request, res: Response) => {
   try {
     const { scheduleId } = req.params;
-    const user = (req as any).user;
+    const user = (req as any).user; // Authenticated user from middleware
 
+    // Fetch schedule if user owns it OR is a member of the associated group
     const schedule = await prisma.schedule.findFirst({
       where: {
         AND: [
           { id: scheduleId as string },
           {
             OR: [
-              { user_id: user.id },
-              { group: { groupMembers: { some: { id: user.id } } } },
+              { user_id: user.id }, // User created it
+              { group: { groupMembers: { some: { id: user.id } } } }, // User is in the group
             ],
           },
         ],
@@ -170,12 +174,13 @@ export const getASchedule = async (req: Request, res: Response) => {
   }
 };
 
-//delete schedule
+// Delete a schedule (user can only delete their own schedules)
 export const deleteSchedule = async (req: Request, res: Response) => {
   try {
     const { scheduleId } = req.params;
-    const user = (req as any).user;
+    const user = (req as any).user; // Authenticated user from middleware
 
+    // Verify user owns this schedule
     const schedule = await prisma.schedule.findFirst({
       where: { AND: [{ id: scheduleId as string, user_id: user.id }] },
     });
@@ -202,13 +207,14 @@ export const deleteSchedule = async (req: Request, res: Response) => {
   }
 };
 
-//update schedule
+// Update a schedule (user can only update their own schedules)
 export const updateSchedule = async (req: Request, res: Response) => {
   try {
-    const user = (req as any).user;
+    const user = (req as any).user; // Authenticated user from middleware
     const { scheduleId } = req.params;
     const { title, desc, date } = req.body;
 
+    // Verify user owns this schedule
     const schedule = await prisma.schedule.findFirst({
       where: { AND: [{ id: scheduleId as string }, { user_id: user.id }] },
     });
@@ -220,6 +226,7 @@ export const updateSchedule = async (req: Request, res: Response) => {
       });
     }
 
+    // Validate input fields are not blank
     if (!title.trim() || !desc.trim() || !date.trim()) {
       return res.status(409).json({
         success: false,

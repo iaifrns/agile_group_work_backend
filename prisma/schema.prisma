@@ -1,12 +1,15 @@
+// Prisma client generator configuration
 generator client {
   provider = "prisma-client"
   output   = "../src/generated/prisma"
 }
 
+// PostgreSQL database configuration
 datasource db {
   provider = "postgresql"
 }
 
+// Student/User model representing a learner in the system
 model Student {
   id           String         @id @default(uuid())
   firstName    String
@@ -16,12 +19,13 @@ model Student {
   phoneNumber  String
   classLevel   String?
   groupMembers GroupMembers[]
-  feedBack FeedBack[]
+  feedBack     FeedBack[]
   notifications Notification[]
-  tasks Task[] @relation("TaskToStudent")
-  schedule Schedule[]
+  tasks        Task[]         @relation("TaskToStudent")
+  schedule     Schedule[]
 }
 
+// Junction table for many-to-many relationship between Student and Group
 model GroupMembers {
   id         String      @id @default(uuid())
   student_id String
@@ -31,29 +35,31 @@ model GroupMembers {
   student    Student     @relation(fields: [student_id], references: [id], onDelete: Cascade)
 }
 
+// Study group model with admin and members
 model Group {
   id           String         @id @default(uuid())
   name         String         @unique
   createdAt    DateTime       @default(now())
   admin        String
   groupMembers GroupMembers[]
-  tasks Task[]
-  schedules Schedule[]
+  tasks        Task[]
+  schedules    Schedule[]
 }
 
+// Task/assignment model for both personal and group tasks
 model Task {
-  id String @id @default(uuid())
-  title String
-  desc String
-  status TaskStatus
+  id       String   @id @default(uuid())
+  title    String
+  desc     String
+  status   TaskStatus
   category TaskCategory
-  type TaskType
-  groupId String?
+  type     TaskType
+  groupId  String?
   students Student[] @relation("TaskToStudent")
   feedBack FeedBack[]
-  group  Group?   @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  group    Group?    @relation(fields: [groupId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
-  dueDate DateTime
+  dueDate  DateTime
 }
 
 /*
@@ -67,58 +73,65 @@ model FeedBack {
 
   I commented this model because without the CreatedAt the feedback won't be able to sort from newest to older
 }
-*/ 
+*/
 
+// Feedback model with timestamp for chronological sorting
 model FeedBack {
   id        String   @id @default(uuid())
   message   String
   studentId String
   taskId    String
-  createdAt DateTime @default(now())
+  createdAt DateTime @default(now()) // Enables sorting feedback from newest to oldest
 
   student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
   task    Task    @relation(fields: [taskId], references: [id], onDelete: Cascade)
 }
 
+// Notification model for system alerts and messages
 model Notification {
-  id String @id @default(uuid())
-  message String
-  students Student[]
-  isRead String[] @default([])
-  navigate String
+  id        String   @id @default(uuid())
+  message   String
+  students  Student[]
+  isRead    String[] @default([]) // Tracks which students have read the notification
+  navigate  String   // Navigation path/route when notification is clicked
   createdAt DateTime @default(now())
 }
 
+// Schedule/event model for calendar items
 model Schedule {
-  id String @id @default(uuid())
-  title String
-  desc String
+  id       String   @id @default(uuid())
+  title    String
+  desc     String
   createAt DateTime @default(now())
-  date DateTime
+  date     DateTime
   group_id String?
-  user_id String
-  group Group? @relation(fields: [group_id], references: [id], onDelete: Cascade)
-  user Student @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  user_id  String
+  group    Group?   @relation(fields: [group_id], references: [id], onDelete: Cascade)
+  user     Student  @relation(fields: [user_id], references: [id], onDelete: Cascade)
 }
 
+// Group membership request status
 enum GroupStatus {
-  REQUEST
-  MEMBER
+  REQUEST  // Pending approval
+  MEMBER   // Approved member
 }
 
+// Task completion status
 enum TaskStatus {
   TODO
   INPROGRESS
   DONE
 }
 
+// Task subject category
 enum TaskCategory {
   READING
-  EXERCISE 
-  REVISION 
+  EXERCISE
+  REVISION
   PROJECT_WORK
 }
 
+// Task scope - personal or collaborative
 enum TaskType {
   PERSONAL
   GROUP

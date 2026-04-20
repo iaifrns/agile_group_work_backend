@@ -27,7 +27,7 @@ type MemberList = {
   };
 };
 
-//Helper Function
+// Helper: Verify group exists and current user is admin
 const getGroupVerifyAdmin = async (
   groupId: string | string[],
   userId: string,
@@ -47,7 +47,7 @@ const getGroupVerifyAdmin = async (
   return group;
 };
 
-//helper function
+// Helper: Get full name of a student by ID
 const getStudentName = async (student_id: string) => {
   const student = await prisma.student.findUnique({
     where: { id: student_id },
@@ -57,6 +57,7 @@ const getStudentName = async (student_id: string) => {
   return student?.firstName + " " + student?.lastName;
 };
 
+// Helper: Extract student IDs from member list
 const returnSTudentsId = (members: MemberList[]) => {
   return members.map((member) => member.student.id);
 };
@@ -136,17 +137,19 @@ export const getGroupDetails = async (req: Request, res: Response) => {
 
 // Update the Group name - Only Admin can update
 export const updateGroupName = async (req: Request, res: Response) => {
-  const user = (req as any).user;
+  const user = (req as any).user; // Authenticated user from middleware
   try {
     const { groupId } = req.params;
     const { name } = req.body;
 
+    // Validate group name input
     if (!name || typeof name !== "string" || !name.trim()) {
       return res
         .status(400)
         .json({ success: false, message: "Name is required" });
     }
 
+    // Check if group exists
     const group = await prisma.group.findUnique({
       where: { id: groupId as string },
     });
@@ -156,12 +159,14 @@ export const updateGroupName = async (req: Request, res: Response) => {
         .status(404)
         .json({ success: false, message: "Group not found." });
     }
+    // Verify current user is the group admin
     if (group.admin !== user.id) {
       return res
         .status(403)
         .json({ success: false, message: "Forbidden (admin only)" });
     }
 
+    // Transaction: update group name and notify all members
     const updated = await prisma.$transaction(async (transaction) => {
       const updated = await transaction.group.update({
         where: { id: groupId as string },
@@ -169,8 +174,10 @@ export const updateGroupName = async (req: Request, res: Response) => {
         select: { id: true, name: true, createdAt: true, admin: true },
       });
 
+      // Get all group members to send notifications
       const members = await getGroupMembers(groupId as string);
 
+      // Create notification for all members about name change
       await transaction.notification.create({
         data: {
           message:
@@ -190,6 +197,7 @@ export const updateGroupName = async (req: Request, res: Response) => {
       return updated;
     });
 
+    // Emit real-time notification via Socket.IO
     const io = getIo();
 
     io.emit("notification", {
@@ -205,20 +213,23 @@ export const updateGroupName = async (req: Request, res: Response) => {
 
 // Add Member to Group - Admin Only
 export const addMemberToGroup = async (req: Request, res: Response) => {
-  const user = (req as any).user;
+  const user = (req as any).user; // Authenticated user from middleware
   try {
     const { groupId } = req.params;
     const { studentId } = req.body;
 
+    // Validate student ID input
     if (!studentId || typeof studentId !== "string") {
       return res
         .status(400)
         .json({ success: false, message: "StudentId is required" });
     }
 
+    // Verify user is group admin and group exists
     const group = await getGroupVerifyAdmin(groupId, user.id, res);
     if (!group) return;
 
+    // Check if student to add exists
     const student = await prisma.student.findUnique({
       where: { id: studentId },
     });
@@ -229,6 +240,7 @@ export const addMemberToGroup = async (req: Request, res: Response) => {
         .json({ success: false, message: "Student not found." });
     }
 
+    // Check if student is already a member
     const existing = await prisma.groupMembers.findFirst({
       where: { group_id: groupId as string, student_id: studentId },
     });
@@ -239,7 +251,9 @@ export const addMemberToGroup = async (req: Request, res: Response) => {
         .json({ success: false, message: "Student is already a member" });
     }
 
+    // Transaction: add member and create notifications
     await prisma.$transaction(async (transaction) => {
+      // Add student as member
       await transaction.groupMembers.create({
         data: {
           student_id: studentId,
@@ -248,9 +262,12 @@ export const addMemberToGroup = async (req: Request, res: Response) => {
         },
       });
 
+      // Get all current members for notification
       const members = await getGroupMembers(groupId as string);
 
+      // Create two notifications: one for all members, one specifically for the added student
       await Promise.all([
+        // Notify all existing members about new member joining
         transaction.notification.create({
           data: {
             message:
@@ -265,6 +282,7 @@ export const addMemberToGroup = async (req: Request, res: Response) => {
             },
           },
         }),
+        // Notify the added student directly
         transaction.notification.create({
           data: {
             message:
@@ -283,6 +301,7 @@ export const addMemberToGroup = async (req: Request, res: Response) => {
       ]);
     });
 
+    // Emit real-time notification via Socket.IO
     const io = getIo();
 
     io.emit("notification", {
@@ -300,18 +319,21 @@ export const addMemberToGroup = async (req: Request, res: Response) => {
 
 // Remove Member from Group - Admin Only - Admin cannot remove themselves
 export const removeMemberFromGroup = async (req: Request, res: Response) => {
-  const user = (req as any).user;
+  const user = (req as any).user; // Authenticated user from middleware
   try {
     const { groupId, studentId } = req.params;
+    // Verify user is group admin and group exists
     const group = await getGroupVerifyAdmin(groupId, user.id, res);
     if (!group) return;
 
+    // Prevent admin from removing themselves
     if (studentId === group.admin) {
       return res
         .status(400)
         .json({ success: false, message: "Cannot remove Admin" });
     }
 
+    // Check if membership exists
     const membership = await prisma.groupMembers.findFirst({
       where: { group_id: groupId as string, student_id: studentId as string },
     });
@@ -322,15 +344,20 @@ export const removeMemberFromGroup = async (req: Request, res: Response) => {
         .json({ success: false, message: "Membership not found." });
     }
 
+    // Transaction: remove member and create notifications
     await prisma.$transaction(async (transaction) => {
+      // Delete the membership record
       await transaction.groupMembers.delete({ where: { id: membership.id } });
 
+      // Get removed student's name and remaining members list
       const [name, members] = await Promise.all([
         getStudentName(studentId as string),
         getGroupMembers(group.id),
       ]);
 
+      // Create notifications: one for remaining members, one for removed student
       await Promise.all([
+        // Notify remaining members about removal
         transaction.notification.create({
           data: {
             message: "admin removed " + name + " from " + group.name + "group",
@@ -340,6 +367,7 @@ export const removeMemberFromGroup = async (req: Request, res: Response) => {
             },
           },
         }),
+        // Notify the removed student
         transaction.notification.create({
           data: {
             message: "admin removed you from " + group.name + "group",
@@ -352,6 +380,7 @@ export const removeMemberFromGroup = async (req: Request, res: Response) => {
       ]);
     });
 
+    // Emit real-time notification via Socket.IO
     const io = getIo();
 
     io.emit("notification", {
@@ -369,15 +398,20 @@ export const removeMemberFromGroup = async (req: Request, res: Response) => {
 
 // Deleting a Group - Only Admin - Related groupMembers records are removed auto via cascade delete
 export const deleteGroup = async (req: Request, res: Response) => {
-  const user = (req as any).user;
+  const user = (req as any).user; // Authenticated user from middleware
   try {
     const { groupId } = req.params;
+    // Verify user is group admin and group exists
     const group = await getGroupVerifyAdmin(groupId, user.id, res);
     if (!group) return;
 
+    // Transaction: delete group and notify all members
     await prisma.$transaction(async (transaction) => {
+      // Get all members before deletion for notification
       const members = await getGroupMembers(groupId as string);
+      // Delete the group (cascade deletes groupMembers automatically)
       await transaction.group.delete({ where: { id: groupId as string } });
+      // Create notification for all former members
       await transaction.notification.create({
         data: {
           message: group.name + " was deleted",
@@ -389,6 +423,7 @@ export const deleteGroup = async (req: Request, res: Response) => {
       });
     });
 
+    // Emit real-time notification via Socket.IO
     const io = getIo();
 
     io.emit("notification", {
@@ -407,13 +442,14 @@ export const deleteGroup = async (req: Request, res: Response) => {
 // API End point to return all group
 // Get all groups - for frontend display
 export const getAllGroups = async (req: Request, res: Response) => {
-  const user = (req as any).user;
+  const user = (req as any).user; // Authenticated user from middleware
   try {
+    // Fetch groups that the user is NOT already a member of
     const groups = await prisma.group.findMany({
       where: {
         groupMembers: {
           none: {
-            student_id: user.id,
+            student_id: user.id, // Exclude groups where user is already a member
           },
         },
       },
@@ -424,15 +460,16 @@ export const getAllGroups = async (req: Request, res: Response) => {
         admin: true,
         _count: {
           select: {
-            groupMembers: true,
+            groupMembers: true, // Count total members in the group
           },
         },
       },
       orderBy: {
-        createdAt: "desc",
+        createdAt: "desc", // Newest groups first
       },
     });
 
+    // Format group data for cleaner response
     const formattedGroups = groups.map((group) => ({
       id: group.id,
       name: group.name,
@@ -460,12 +497,14 @@ export const createGroup = async (req: Request, res: Response) => {
     const { name, id } = req.body;
     //const adminId = user.id;
 
+    // Validate group name input
     if (!name || typeof name !== "string" || !name.trim()) {
       return res
         .status(400)
         .json({ success: false, message: "Group name is required" });
     }
 
+    // Validate user ID input
     if (!id || typeof id !== "string") {
       return res.status(400).json({
         success: false,
@@ -485,7 +524,7 @@ export const createGroup = async (req: Request, res: Response) => {
       });
     }
 
-    //prevent duplicate group names
+    // Prevent duplicate group names
     const existingGroup = await prisma.group.findFirst({
       where: {
         name: name.trim(),
@@ -499,15 +538,16 @@ export const createGroup = async (req: Request, res: Response) => {
       });
     }
 
-    // Create group and add creator as first member
+    // Transaction: create group, add creator as member, and create notification
     const group = await prisma.$transaction(async (tx) => {
       const newGroup = await tx.group.create({
         data: {
           name: name.trim(),
-          admin: id,
+          admin: id, // Creator becomes admin
         },
       });
 
+      // Add creator as first member
       await tx.groupMembers.create({
         data: {
           group_id: newGroup.id,
@@ -516,6 +556,7 @@ export const createGroup = async (req: Request, res: Response) => {
         },
       });
 
+      // Send confirmation notification to creator
       await tx.notification.create({
         data: {
           message: "group created successfully",
@@ -529,6 +570,7 @@ export const createGroup = async (req: Request, res: Response) => {
       return newGroup;
     });
 
+    // Emit real-time notification via Socket.IO
     const io = getIo();
 
     io.emit("notification", {
@@ -555,8 +597,9 @@ export const createGroup = async (req: Request, res: Response) => {
 export const sendJoinRequest = async (req: Request, res: Response) => {
   try {
     const { groupId } = req.params;
-    const studentId = (req as any).user?.id;
+    const studentId = (req as any).user?.id; // Authenticated user from middleware
 
+    // Verify user is authenticated
     if (!studentId) {
       return res.status(401).json({
         success: false,
@@ -564,7 +607,7 @@ export const sendJoinRequest = async (req: Request, res: Response) => {
       });
     }
 
-    // check if group exists
+    // Check if group exists
     const group = await prisma.group.findUnique({
       where: { id: groupId as string },
     });
@@ -576,7 +619,7 @@ export const sendJoinRequest = async (req: Request, res: Response) => {
       });
     }
 
-    // optional: prevent admin from sending join request to own group
+    // Prevent admin from sending join request to their own group
     if (group.admin === studentId) {
       return res.status(400).json({
         success: false,
@@ -584,7 +627,7 @@ export const sendJoinRequest = async (req: Request, res: Response) => {
       });
     }
 
-    // check if student already has a membership/request in this group
+    // Check if student already has a membership/request in this group
     const existingRecord = await prisma.groupMembers.findFirst({
       where: {
         group_id: groupId as string,
@@ -608,16 +651,19 @@ export const sendJoinRequest = async (req: Request, res: Response) => {
       }
     }
 
+    // Transaction: create join request and send notifications
     const joinRequest = await prisma.$transaction(async (transaction) => {
       const joinRequest = await transaction.groupMembers.create({
         data: {
           group_id: groupId as string,
           student_id: studentId,
-          status: GroupStatus.REQUEST,
+          status: GroupStatus.REQUEST, // Pending approval
         },
       });
 
+      // Create notifications: one for student, one for group admin
       await Promise.all([
+        // Confirm to student that request was sent
         transaction.notification.create({
           data: {
             message: "Join Request send to " + group.name,
@@ -627,6 +673,7 @@ export const sendJoinRequest = async (req: Request, res: Response) => {
             },
           },
         }),
+        // Notify group admin about incoming request
         transaction.notification.create({
           data: {
             message: "A request to join " + group.name + "was send",
@@ -641,6 +688,7 @@ export const sendJoinRequest = async (req: Request, res: Response) => {
       return joinRequest;
     });
 
+    // Emit real-time notification via Socket.IO
     const io = getIo();
 
     io.emit("notification", {
@@ -666,22 +714,24 @@ export const sendJoinRequest = async (req: Request, res: Response) => {
   }
 };
 
+// Get all groups that a student is a member of
 export const getAllGroupsAStudentIsIn = async (req: Request, res: Response) => {
-  const user = (req as any).user;
+  const user = (req as any).user; // Authenticated user from middleware
   try {
+    // Fetch groups where user has MEMBER status
     const groups = await prisma.group.findMany({
       where: {
         groupMembers: {
           some: {
             student_id: user.id,
-            status: GroupStatus.MEMBER,
+            status: GroupStatus.MEMBER, // Only approved memberships
           },
         },
       },
       select: {
         id: true,
         name: true,
-        admin: true
+        admin: true,
       },
     });
 

@@ -1,10 +1,12 @@
 import { Request, Response } from "express";
 import { prisma } from "../lib/prisma";
 
+// Get all notifications for the authenticated student
 export const getStudentNotifications = async (req: Request, res: Response) => {
   try {
-    const user = (req as any).user;
+    const user = (req as any).user; // Authenticated user from middleware
 
+    // Fetch all notifications where this student is in the recipients list
     const notifications = await prisma.notification.findMany({
       where: {
         students: {
@@ -28,10 +30,12 @@ export const getStudentNotifications = async (req: Request, res: Response) => {
   }
 };
 
+// Get only unread notifications for the authenticated student
 export const getUnReadNotifications = async (req: Request, res: Response) => {
   try {
-    const user = (req as any).user;
+    const user = (req as any).user; // Authenticated user from middleware
 
+    // Fetch notifications where student ID is NOT already in the isRead array
     const notifications = await prisma.notification.findMany({
       where: {
         students: {
@@ -41,7 +45,7 @@ export const getUnReadNotifications = async (req: Request, res: Response) => {
         },
         NOT: {
           isRead: {
-            has: user.id,
+            has: user.id, // Exclude notifications already marked as read by this student
           },
         },
       },
@@ -60,11 +64,13 @@ export const getUnReadNotifications = async (req: Request, res: Response) => {
   }
 };
 
+// Mark multiple notifications as read by adding student ID to isRead array
 export const updateNotifications = async (req: Request, res: Response) => {
   try {
-    const user = (req as any).user;
-    const { notificationList } = req.body;
+    const user = (req as any).user; // Authenticated user from middleware
+    const { notificationList } = req.body; // Array of notification IDs to mark as read
 
+    // Update each notification by pushing student ID to isRead array
     await Promise.all(
       (notificationList as string[]).map((notifId) =>
         prisma.notification.update({
@@ -73,7 +79,7 @@ export const updateNotifications = async (req: Request, res: Response) => {
           },
           data: {
             isRead: {
-              push: user.id,
+              push: user.id, // Add student ID to the read list
             },
           },
         }),

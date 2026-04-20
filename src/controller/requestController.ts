@@ -11,13 +11,13 @@ import { getIo } from "../socket";
  *
  */
 
-//Get group join request
+// Get all pending join requests for a specific group (admin only)
 export const getJoinRequests = async (req: Request, res: Response) => {
   try {
     const groupId = req.params.groupId;
-    const userId = (req as any).user.id;
+    const userId = (req as any).user.id; // Authenticated user from middleware
 
-    //if userId exist (user already login or not)
+    // Verify user is authenticated
     if (!userId) {
       return res.status(401).json({
         success: false,
@@ -25,7 +25,7 @@ export const getJoinRequests = async (req: Request, res: Response) => {
       });
     }
 
-    //Check if the group exists
+    // Check if the group exists and get admin info
     const group = await prisma.group.findUnique({
       where: {
         id: groupId as string,
@@ -44,7 +44,7 @@ export const getJoinRequests = async (req: Request, res: Response) => {
       });
     }
 
-    //Only the admin can check requests
+    // Only the admin can view join requests
     if (group.admin !== userId) {
       return res.status(403).json({
         success: false,
@@ -52,11 +52,11 @@ export const getJoinRequests = async (req: Request, res: Response) => {
       });
     }
 
-    //View all join request
+    // Fetch all pending join requests for this group
     const requests = await prisma.groupMembers.findMany({
       where: {
         group_id: `${groupId}`,
-        status: GroupStatus.REQUEST,
+        status: GroupStatus.REQUEST, // Only pending requests, not approved members
       },
       include: {
         student: {
@@ -69,10 +69,11 @@ export const getJoinRequests = async (req: Request, res: Response) => {
         },
       },
       orderBy: {
-        id: "desc",
+        id: "desc", // Most recent requests first
       },
     });
 
+    // Format request data for cleaner response
     const formattedRequests = requests.map((req) => ({
       id: req.id,
       student: {
@@ -96,14 +97,14 @@ export const getJoinRequests = async (req: Request, res: Response) => {
   }
 };
 
-//Handle requests (Approve/Decline)
+// Handle join requests (Approve/Decline) - Admin only
 export const processJoinRequest = async (req: Request, res: Response) => {
   try {
     const { groupId, requestId } = req.params;
-    const userId = (req as any).user?.id;
+    const userId = (req as any).user?.id; // Authenticated user from middleware
     const { action } = req.body;
 
-    // for information
+    // Log for debugging
     console.log("Processing request:", {
       groupId,
       requestId,
@@ -111,7 +112,7 @@ export const processJoinRequest = async (req: Request, res: Response) => {
       action,
     });
 
-    //Verify the input
+    // Validate action parameter
     if (!action || !["Approve", "Decline"].includes(action)) {
       return res.status(400).json({
         success: false,
@@ -119,7 +120,7 @@ export const processJoinRequest = async (req: Request, res: Response) => {
       });
     }
 
-    //Check login status
+    // Check login status (commented out)
     //if (!userId) {
     //return res.status(401).json({
     //  success: false,
@@ -127,7 +128,7 @@ export const processJoinRequest = async (req: Request, res: Response) => {
     //});
     //}
 
-    //Check if group exists
+    // Check if group exists
     const group = await prisma.group.findUnique({
       where: {
         id: `${groupId}`,
@@ -146,7 +147,7 @@ export const processJoinRequest = async (req: Request, res: Response) => {
       });
     }
 
-    //Only the admin can handle requests
+    // Only the admin can handle join requests
     if (group.admin !== userId) {
       return res.status(403).json({
         success: false,
@@ -154,7 +155,7 @@ export const processJoinRequest = async (req: Request, res: Response) => {
       });
     }
 
-    //Looking for request
+    // Find the join request
     const joinRequest = await prisma.groupMembers.findUnique({
       where: {
         id: `${requestId}`,
@@ -177,7 +178,7 @@ export const processJoinRequest = async (req: Request, res: Response) => {
       });
     }
 
-    //Check if the request belong to certain group
+    // Verify request belongs to the specified group
     if (joinRequest.group_id !== groupId) {
       return res.status(400).json({
         success: false,
@@ -185,7 +186,7 @@ export const processJoinRequest = async (req: Request, res: Response) => {
       });
     }
 
-    //Check if the request has been handled
+    // Check if request has already been processed
     if (joinRequest.status !== GroupStatus.REQUEST) {
       return res.status(400).json({
         success: false,
@@ -193,9 +194,9 @@ export const processJoinRequest = async (req: Request, res: Response) => {
       });
     }
 
-    //Handle request
+    // Handle approval
     if (action === "Approve") {
-      //Approve: update status to "MEMBER"
+      // Approve: update status to MEMBER and notify the student
       await prisma.$transaction(async (transaction) => {
         await transaction.groupMembers.update({
           where: {
@@ -205,6 +206,7 @@ export const processJoinRequest = async (req: Request, res: Response) => {
             status: GroupStatus.MEMBER,
           },
         });
+        // Send approval notification to the student
         await transaction.notification.create({
           data: {
             message: "You were accepted in " + group.name + " congratulation",
@@ -216,6 +218,7 @@ export const processJoinRequest = async (req: Request, res: Response) => {
         });
       });
 
+      // Emit real-time notification via Socket.IO
       const io = getIo();
 
       io.emit("notification", {
@@ -233,13 +236,14 @@ export const processJoinRequest = async (req: Request, res: Response) => {
         },
       });
     } else {
-      //Decline: delete request record
+      // Decline: delete the request record and notify the student
       await prisma.$transaction(async (transaction) => {
         await transaction.groupMembers.delete({
           where: {
             id: `${requestId}`,
           },
         });
+        // Send rejection notification to the student
         await transaction.notification.create({
           data: {
             message: "The request to join " + group.name + " was declined",
@@ -265,7 +269,7 @@ export const processJoinRequest = async (req: Request, res: Response) => {
   } catch (error) {
     console.error("Process join request error:", error);
 
-    //Handle Prisma errors
+    // Handle Prisma "record not found" error
     if (error && typeof error === "object" && "code" in error) {
       const prismaError = error as { code: string };
       if (prismaError.code === "P2025") {
@@ -283,18 +287,20 @@ export const processJoinRequest = async (req: Request, res: Response) => {
   }
 };
 
+// Get all pending join requests sent by the authenticated student
 export const getStudentSendRequest = async (req: Request, res: Response) => {
   try {
-    const user = (req as any).user;
+    const user = (req as any).user; // Authenticated user from middleware
 
+    // Fetch all REQUEST status entries where this student is the requester
     const requestList = await prisma.groupMembers.findMany({
       where: {
         student_id: user.id,
-        status: GroupStatus.REQUEST,
+        status: GroupStatus.REQUEST, // Only pending requests, not approved memberships
       },
       select: {
         id: true,
-        group: true,
+        group: true, // Include associated group details
       },
     });
 
@@ -311,17 +317,19 @@ export const getStudentSendRequest = async (req: Request, res: Response) => {
   }
 };
 
+// Delete a pending join request by ID
 export const deleteARequest = async (req: Request, res: Response) => {
   try {
-    const { requestId } = req.body;
+    const { requestId } = req.body; // ID of the request to delete
 
+    // Remove the group membership request from the database
     const response = await prisma.groupMembers.delete({
       where: {
         id: requestId,
       },
     });
 
-    console.log(response);
+    console.log(response); // Log deleted record for debugging
 
     res.status(200).json({
       success: true,

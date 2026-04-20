@@ -7,11 +7,11 @@ import { group } from "console";
 /*
  * Create Task Controller
  * Create Feedback Controller
- * Get All Tasks Controller
- * Get Single Task Controller
  * Update Task Controller
- * Update Feedback Controller
  * Delete Task Controller
+ * Get Feedback Controller
+ * Get all Tasks Controller
+ * Get Single Task Controller
  */
 
 //1.Create Task Controller
@@ -701,6 +701,7 @@ export const deleteTask = async (req: Request, res: Response) => {
   }
 };
 
+// GET feedback for tasks
 export const getFeedbackForTask = async (req: Request, res: Response) => {
   try {
     const { taskId } = req.params;
@@ -767,12 +768,13 @@ export const getFeedbackForTask = async (req: Request, res: Response) => {
   }
 };
 
-// GET all group tasks
+// GET all group tasks for a specific group
 export const getAllGroupTasks = async (req: Request, res: Response) => {
   try {
     const { groupId } = req.params;
-    const user = (req as any).user;
+    const user = (req as any).user; // Authenticated user from middleware
 
+    // Verify group exists
     const group = await prisma.group.findUnique({
       where: {
         id: groupId as string,
@@ -786,6 +788,7 @@ export const getAllGroupTasks = async (req: Request, res: Response) => {
       });
     }
 
+    // Check if user is a member of the group
     const groupMember = await prisma.groupMembers.findFirst({
       where: {
         group_id: groupId as string,
@@ -800,6 +803,7 @@ export const getAllGroupTasks = async (req: Request, res: Response) => {
       });
     }
 
+    // Fetch all GROUP type tasks for this group with related counts
     const tasks = await prisma.task.findMany({
       where: {
         type: "GROUP",
@@ -814,8 +818,8 @@ export const getAllGroupTasks = async (req: Request, res: Response) => {
         type: true,
         _count: {
           select: {
-            feedBack: true,
-            students: true,
+            feedBack: true,   // Count of feedback entries
+            students: true,   // Count of assigned students
           },
         },
         students: true,
@@ -823,10 +827,11 @@ export const getAllGroupTasks = async (req: Request, res: Response) => {
         createdAt: true,
       },
       orderBy: {
-        createdAt: "asc",
+        createdAt: "asc",     // Oldest tasks first
       },
     });
 
+    // Format task data for cleaner response
     const formattedTasks = tasks.map((task) => ({
       id: task.id,
       title: task.title,
@@ -855,16 +860,18 @@ export const getAllGroupTasks = async (req: Request, res: Response) => {
   }
 };
 
-// GET all person tasks
+// GET all personal tasks for the authenticated user
 export const getMyTasks = async (req: Request, res: Response) => {
   try {
-    const user = (req as any).user;
+    const user = (req as any).user; // Authenticated user from middleware
+
+    // Fetch all PERSONAL type tasks assigned to this student
     const tasks = await prisma.task.findMany({
       where: {
         type: "PERSONAL",
         students: {
           some: {
-            id: user.id,
+            id: user.id, // Filter tasks where this student is assigned
           },
         },
       },
@@ -877,8 +884,8 @@ export const getMyTasks = async (req: Request, res: Response) => {
         type: true,
         _count: {
           select: {
-            feedBack: true,
-            students: true,
+            feedBack: true,   // Count of feedback entries for this task
+            students: true,   // Count of students assigned to this task
           },
         },
         students: true,
@@ -886,10 +893,11 @@ export const getMyTasks = async (req: Request, res: Response) => {
         createdAt: true,
       },
       orderBy: {
-        createdAt: "asc",
+        createdAt: "asc", // Oldest tasks first
       },
     });
 
+    // Format task data for cleaner response
     const formattedTasks = tasks.map((task) => ({
       id: task.id,
       title: task.title,
@@ -918,11 +926,12 @@ export const getMyTasks = async (req: Request, res: Response) => {
   }
 };
 
-// GET single task by ID
+// GET single task by ID with full details including students and feedback
 export const getTaskById = async (req: Request, res: Response) => {
   try {
     const { taskId } = req.params;
 
+    // Validate task ID parameter
     if (!taskId) {
       return res.status(400).json({
         success: false,
@@ -930,6 +939,7 @@ export const getTaskById = async (req: Request, res: Response) => {
       });
     }
 
+    // Fetch task with nested student and feedback data
     const task = await prisma.task.findUnique({
       where: {
         id: taskId as string,
@@ -944,6 +954,7 @@ export const getTaskById = async (req: Request, res: Response) => {
         dueDate: true,
         createdAt: true,
         groupId: true,
+        // Include assigned students with their profile info
         students: {
           select: {
             id: true,
@@ -954,6 +965,7 @@ export const getTaskById = async (req: Request, res: Response) => {
             phoneNumber: true,
           },
         },
+        // Include feedback with author details
         feedBack: {
           select: {
             id: true,
@@ -972,6 +984,7 @@ export const getTaskById = async (req: Request, res: Response) => {
       },
     });
 
+    // Handle task not found
     if (!task) {
       return res.status(404).json({
         success: false,
@@ -992,27 +1005,30 @@ export const getTaskById = async (req: Request, res: Response) => {
   }
 };
 
+// GET all tasks (both personal and group tasks the user has access to)
 export const getAllTasks = async (req: Request, res: Response) => {
   try {
-    const user = (req as any).user;
+    const user = (req as any).user; // Authenticated user from middleware
     console.log("Backend here i am");
     console.log(user, "Backend to front");
+
+    // Fetch tasks assigned to user: personal tasks OR group tasks where user is a member
     const tasks = await prisma.task.findMany({
       where: {
         students: {
           some: {
-            id: user.id,
+            id: user.id, // User is assigned to this task
           },
         },
         OR: [
-          { type: "PERSONAL" },
+          { type: "PERSONAL" }, // Personal tasks directly assigned to user
           {
             group: {
               groupMembers: {
-                some: { AND: [{ student_id: user.id }, { status: "MEMBER" }] },
+                some: { AND: [{ student_id: user.id }, { status: "MEMBER" }] }, // User is an approved member of the group
               },
             },
-          },
+          }, // Group tasks where user belongs to the group
         ],
       },
     });

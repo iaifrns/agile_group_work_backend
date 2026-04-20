@@ -4,14 +4,18 @@ import { getAllStudents, getAllStudentsNotInGroup, getUserProfile, updateUserPro
 
 const router = express.Router();
 
-// GET - get user profile (need login)
+// Student routes (all protected by authentication middleware)
+
+// GET - get user profile by ID
 router.get("/profile/:userId", authMiddleware, getUserProfile);
 
-// PUT - update user profile (need login)
+// PUT - update user profile (own profile only)
 router.put('/profile/:userId', authMiddleware, updateUserProfile);
 
-router.get('/get_all_students', authMiddleware, getAllStudents)
+// GET - get all students (excluding current authenticated user)
+router.get('/get_all_students', authMiddleware, getAllStudents);
 
-router.get('/student_not_in_group/:groupId', authMiddleware, getAllStudentsNotInGroup)
+// GET - get all students who are NOT members of a specific group
+router.get('/student_not_in_group/:groupId', authMiddleware, getAllStudentsNotInGroup);
 
 export default router;

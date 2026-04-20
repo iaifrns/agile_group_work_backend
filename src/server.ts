@@ -17,45 +17,48 @@ import { initSocket } from "./socket";
 const app = express();
 const server = http.createServer(app);
 
-//socket io
+// Initialize Socket.IO for real-time notifications
 initSocket(server);
 
-config();
-prisma.$connect();
+config(); // Load environment variables
+prisma.$connect(); // Connect to database
 
-//middleware
-app.use(express.json());
+// Express middleware
+app.use(express.json()); // Parse JSON request bodies
 app.use(
   cors({
-    origin: "http://localhost:5173",
-    credentials: true,
+    origin: "http://localhost:5173", // Frontend development server
+    credentials: true, // Allow cookies to be sent
     methods: ["GET", "POST", "PUT", "DELETE"],
   }),
 );
-app.use(cookieParser());
+app.use(cookieParser()); // Parse cookies from requests
 
-//routes
-app.use("/student", studentRoute);
-app.use("/auth", authRoute);
-app.use("/groups", groupRoute);
-app.use("/group_request", requestRoute);
-app.use("/tasks", createTFRoutes);
-app.use("/notification", notificationRoute);
-app.use("/schedule", scheduleRouter);
+// API routes
+app.use("/student", studentRoute);      // Student profile and user management
+app.use("/auth", authRoute);            // Authentication (register, login, logout)
+app.use("/groups", groupRoute);         // Group management and membership
+app.use("/group_request", requestRoute); // Join request handling
+app.use("/tasks", createTFRoutes);      // Task and feedback management
+app.use("/notification", notificationRoute); // User notifications
+app.use("/schedule", scheduleRouter);   // Calendar/schedule management
 
 const port = 5002;
 
+// Express HTTP server
 app.listen(port, () => {
   console.log("Server runing on port ", port);
 });
 
+// Socket.IO server on separate port for real-time events
 server.listen(5001, () => {
   console.log("socket runing on port 5001");
 });
 
+// Graceful shutdown handlers
 process.on("unhandledRejection", (e) => {
   console.log("an unhandle rejection error occured ", e);
-  prisma.$disconnect();
+  prisma.$disconnect(); // Close database connection
 });
 
 process.on("uncaughtException", (e) => {
