@@ -3,6 +3,8 @@ import { prisma } from "../lib/prisma";
 import { generator } from "../util/generateToken";
 import bcrypt from "bcryptjs";
 import type { Request, Response } from "express";
+import { DefaultArgs } from "@prisma/client/runtime/client";
+import { PrismaClient } from "../generated/prisma/client";
 
 // Register a new student user
 const register = async (req: Request, res: Response) => {
@@ -26,33 +28,40 @@ const register = async (req: Request, res: Response) => {
   const hashedPassword = await bcrypt.hash(password, salt);
 
   // Transaction: create student, generate token, and create welcome notification
-  const { student, token } = await prisma.$transaction(async (trans) => {
-    const student = await trans.student.create({
-      data: {
-        firstName,
-        lastName,
-        email,
-        password: hashedPassword,
-        phoneNumber,
-        classLevel,
-      },
-    });
-
-    const token = generator(student.id, res);
-
-    // Create welcome notification for the new student
-    await trans.notification.create({
-      data: {
-        message: "Welcome to Linko we are happy to have you here.",
-        students: {
-          connect: [{ id: student.id }],
+  const { student, token } = await prisma.$transaction(
+    async (
+      trans: Omit<
+        PrismaClient<never, undefined, DefaultArgs>,
+        "$connect" | "$disconnect" | "$on" | "$use" | "$extends"
+      >,
+    ) => {
+      const student = await trans.student.create({
+        data: {
+          firstName,
+          lastName,
+          email,
+          password: hashedPassword,
+          phoneNumber,
+          classLevel,
         },
-        navigate: "profile",
-      },
-    });
+      });
 
-    return { student, token };
-  });
+      const token = generator(student.id, res);
+
+      // Create welcome notification for the new student
+      await trans.notification.create({
+        data: {
+          message: "Welcome to Linko we are happy to have you here.",
+          students: {
+            connect: [{ id: student.id }],
+          },
+          navigate: "profile",
+        },
+      });
+
+      return { student, token };
+    },
+  );
 
   res.json({
     status: "success",

@@ -47,21 +47,20 @@ var __exportStar = (this && this.__exportStar) || function(m, exports) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.Prisma = exports.PrismaClient = exports.$Enums = void 0;
-const path = __importStar(require("node:path"));
-const node_url_1 = require("node:url");
-globalThis['__dirname'] = path.dirname((0, node_url_1.fileURLToPath)(import.meta.url));
-const $Class = __importStar(require("./internal/class.ts"));
-const Prisma = __importStar(require("./internal/prismaNamespace.ts"));
+const $Class = __importStar(require("./internal/class"));
+const Prisma = __importStar(require("./internal/prismaNamespace"));
 exports.Prisma = Prisma;
-exports.$Enums = __importStar(require("./enums.ts"));
-__exportStar(require("./enums.ts"), exports);
+exports.$Enums = __importStar(require("./enums"));
+__exportStar(require("./enums"), exports);
 /**
  * ## Prisma Client
  *
  * Type-safe database client for TypeScript
  * @example
  * ```
- * const prisma = new PrismaClient()
+ * const prisma = new PrismaClient({
+ *   adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL })
+ * })
  * // Fetch zero or more Students
  * const students = await prisma.student.findMany()
  * ```

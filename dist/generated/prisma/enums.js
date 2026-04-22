@@ -9,3 +9,23 @@
 * 🟢 You can import this file directly.
 */
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.TaskType = exports.TaskCategory = exports.TaskStatus = exports.GroupStatus = void 0;
+exports.GroupStatus = {
+    REQUEST: 'REQUEST',
+    MEMBER: 'MEMBER'
+};
+exports.TaskStatus = {
+    TODO: 'TODO',
+    INPROGRESS: 'INPROGRESS',
+    DONE: 'DONE'
+};
+exports.TaskCategory = {
+    READING: 'READING',
+    EXERCISE: 'EXERCISE',
+    REVISION: 'REVISION',
+    PROJECT_WORK: 'PROJECT_WORK'
+};
+exports.TaskType = {
+    PERSONAL: 'PERSONAL',
+    GROUP: 'GROUP'
+};

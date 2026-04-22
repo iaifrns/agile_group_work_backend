@@ -1,17 +1,20 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.getAllStudentsNotInGroup = exports.updateUserProfile = exports.getAllStudents = exports.getUserProfile = void 0;
+const prisma_1 = require("../lib/prisma");
 /*
- * Student Controller
+ * student Controller
  * Fetches student details in profile
  * Update student/profile info (need to add)
  *
  */
-
-import { prisma } from "../lib/prisma.js";
-export const getUserProfile = async (req, res) => {
+// Get a single student's profile by ID
+const getUserProfile = async (req, res) => {
     try {
         const userId = req.params.userId;
-        const user = await prisma.student.findUnique({
+        const user = await prisma_1.prisma.student.findUnique({
             where: {
-                id: `${userId}`
+                id: `${userId}`,
             },
             select: {
                 id: true,
@@ -19,74 +22,101 @@ export const getUserProfile = async (req, res) => {
                 lastName: true,
                 email: true,
                 classLevel: true,
-                phoneNumber: true
-            }
+                phoneNumber: true,
+            },
         });
         if (!user) {
             return res.status(404).json({
                 success: false,
-                message: "The student do not exists."
+                message: "The student does not exist.",
             });
         }
         res.status(200).json({
             success: true,
-            data: user
+            data: user,
         });
     }
     catch (error) {
         console.error("Fail to fetch student data: ", error);
         res.status(500).json({
             success: false,
-            message: "server error"
+            message: "Server error",
         });
     }
 };
-<<<<<<< HEAD:src/controller/studentController.js
-
-//update user profile info
-export const updateUserProfile = async (req,res) => {
+exports.getUserProfile = getUserProfile;
+// Get all students except the authenticated user
+const getAllStudents = async (req, res) => {
     try {
-        //get user id and 
+        const user = req.user; // Authenticated user from middleware
+        const students = await prisma_1.prisma.student.findMany({
+            where: {
+                NOT: {
+                    id: user.id, // Exclude current user from results
+                },
+            },
+            select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+            },
+        });
+        res.json({
+            status: "success",
+            students,
+        });
+    }
+    catch (e) {
+        console.log(e);
+        res.json({
+            status: "error",
+            message: "something went roung try later",
+        });
+    }
+};
+exports.getAllStudents = getAllStudents;
+// Update user profile information (excluding email)
+const updateUserProfile = async (req, res) => {
+    try {
         const userId = req.params.userId;
-
-        //check if req.body exist
-        if (!req.body){
+        // Validate request body exists
+        if (!req.body) {
             return res.status(400).json({
                 success: false,
-                message: "Request body is missing. Maybe forget Content-Type: application/json?"
+                message: "Request body is missing. Maybe forget Content-Type: application/json?",
             });
         }
-
-        //get update body (not include email)
-        const { firstName, lastName, phoneNumber, classLevel } = req.body;          
-
-        //check if req.body contains data
+        // Extract updatable fields (email cannot be updated)
+        const { firstName, lastName, phoneNumber, classLevel } = req.body;
+        // Check if request body has any data
         if (Object.keys(req.body).length === 0) {
             return res.status(400).json({
                 success: false,
-                message: "Empty request body. Provide at least one field to update."
-            })
-        }
-
-        //only update own profile
-        if (req.user.id !== userId) {
-            return res.status(403).json({
-                success: false,
-                message: "You can only update your own profile"
+                message: "Empty request body. Provide at least one field to update.",
             });
         }
-
-        //check if any field updates
-        if (!firstName && !lastName && !email && !phoneNumber && !classLevel) {
+        // Only update own profile (commented out)
+        //if (req.user.id !== userId) {
+        //  return res.status(403).json({
+        //    success: false,
+        //  message: "You can only update your own profile"
+        //});
+        //}
+        // Ensure at least one valid field is provided for update
+        if (!firstName && !lastName && !phoneNumber && !classLevel) {
             return res.status(400).json({
                 success: false,
-                message: "No fileds to update provided"
+                message: "No valid fields to update provided",
             });
         }
-
-        //get updated items (only those with values)
-        const updateData = {};
-        // if one item === null or undefined (trim blank)
+        // Build update object with only fields that have values (trim whitespace)
+        const updateData = {
+            firstName: "",
+            lastName: "",
+            phoneNumber: "",
+            classLevel: "",
+        };
         if (firstName?.trim()) {
             updateData.firstName = firstName.trim();
         }
@@ -99,54 +129,95 @@ export const updateUserProfile = async (req,res) => {
         if (classLevel?.trim()) {
             updateData.classLevel = classLevel.trim();
         }
-
-        //update database
-        const updateUser = await prisma.student.update({
+        // Update the student record in database
+        const updateUser = await prisma_1.prisma.student.update({
             where: {
-                id: userId
+                id: `${userId}`,
             },
             data: updateData,
             select: {
                 id: true,
                 firstName: true,
-                lastName:true,
+                lastName: true,
                 email: true,
                 classLevel: true,
-                phoneNumber: true                
-            }
+                phoneNumber: true,
+            },
         });
-
-        //return status message
         res.status(200).json({
             success: true,
-            messgae: "Profile updated successfully",
-            data: updateUser
+            message: "Profile updated successfully",
+            data: updateUser,
         });
-
-    }catch (error) {
+    }
+    catch (error) {
         console.error("Update profile error:", error);
-
-        //P2025 in Prisma = 'Record to update not found'
-        if (error.code === 'P2025') {  
-            return res.statuse(404).json({
+        if (error && typeof error === "object" && "code" in error) {
+            const prismaError = error;
+            // P2025 in Prisma = 'Record to update not found'
+            if (prismaError.code === "P2025") {
+                return res.status(404).json({
+                    success: false,
+                    message: "User not found",
+                });
+            }
+            // Handle other Prisma errors
+            if (prismaError.code?.startsWith("P")) {
+                return res.status(400).json({
+                    success: false,
+                    message: `Database error: ${error.code}`,
+                });
+            }
+            res.status(500).json({
                 success: false,
-                message: "User not found"
+                message: "Server error",
             });
         }
-
-        //other Prisma errors
-        if (error.code ?.startWith('P')){
-            return res.status(400).json({
-                success: false,
-                message: `Database error: ${error.code}`
-            });
+    }
+};
+exports.updateUserProfile = updateUserProfile;
+// Get all students who are NOT members of a specific group
+const getAllStudentsNotInGroup = async (req, res) => {
+    try {
+        const groupId = req.params.groupId;
+        // Verify group exists
+        const group = await prisma_1.prisma.group.findUnique({
+            where: {
+                id: groupId
+            }
+        });
+        if (!group) {
+            return res
+                .status(404)
+                .json({ success: false, message: "Group not found." });
         }
-
-        res.status(500).json({
+        // Find students with no membership record for this group
+        const students = await prisma_1.prisma.student.findMany({
+            where: {
+                groupMembers: {
+                    none: {
+                        group_id: groupId, // Student is not associated with this group
+                    }
+                }
+            },
+            select: {
+                firstName: true,
+                lastName: true,
+                email: true,
+                id: true,
+            }
+        });
+        return res.json({
+            success: true,
+            students
+        });
+    }
+    catch (e) {
+        console.log(e);
+        return res.status(500).json({
             success: false,
-            message: "Server error"
+            message: "something went wrong"
         });
     }
 };
-=======
->>>>>>> e505ed89593444000d6836189a05dc6988b053ae:dist/controller/studentController.js
+exports.getAllStudentsNotInGroup = getAllStudentsNotInGroup;

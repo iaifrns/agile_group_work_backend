@@ -1,11 +1,19 @@
-import jwt from "jsonwebtoken";
-import { prisma } from "../lib/prisma.js";
-import { generator } from "../util/generateToken.js";
-import bcrypt from "bcryptjs";
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.check_token = exports.logout = exports.login = exports.register = void 0;
+const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
+const prisma_1 = require("../lib/prisma");
+const generateToken_1 = require("../util/generateToken");
+const bcryptjs_1 = __importDefault(require("bcryptjs"));
+// Register a new student user
 const register = async (req, res) => {
     const { firstName, lastName, email, password, phoneNumber, classLevel } = req.body;
     console.log(email);
-    const user = await prisma.student.findUnique({
+    // Check if user already exists
+    const user = await prisma_1.prisma.student.findUnique({
         where: { email: email },
     });
     if (user) {
@@ -13,19 +21,34 @@ const register = async (req, res) => {
             error: "This email is already present in the system",
         });
     }
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
-    const student = await prisma.student.create({
-        data: {
-            firstName,
-            lastName,
-            email,
-            password: hashedPassword,
-            phoneNumber,
-            classLevel,
-        },
+    // Hash password before storing
+    const salt = await bcryptjs_1.default.genSalt(10);
+    const hashedPassword = await bcryptjs_1.default.hash(password, salt);
+    // Transaction: create student, generate token, and create welcome notification
+    const { student, token } = await prisma_1.prisma.$transaction(async (trans) => {
+        const student = await trans.student.create({
+            data: {
+                firstName,
+                lastName,
+                email,
+                password: hashedPassword,
+                phoneNumber,
+                classLevel,
+            },
+        });
+        const token = (0, generateToken_1.generator)(student.id, res);
+        // Create welcome notification for the new student
+        await trans.notification.create({
+            data: {
+                message: "Welcome to Linko we are happy to have you here.",
+                students: {
+                    connect: [{ id: student.id }],
+                },
+                navigate: "profile",
+            },
+        });
+        return { student, token };
     });
-    const token = generator(student.id, res);
     res.json({
         status: "success",
         data: {
@@ -36,19 +59,24 @@ const register = async (req, res) => {
         token,
     });
 };
+exports.register = register;
+// Login existing student user
 const login = async (req, res) => {
     const { email, password } = req.body;
-    const student = await prisma.student.findUnique({
+    // Find student by email
+    const student = await prisma_1.prisma.student.findUnique({
         where: { email },
     });
     if (!student) {
         return res.json({ error: "Invalide email or password" });
     }
-    const compare = await bcrypt.compare(password, student.password);
+    // Verify password
+    const compare = await bcryptjs_1.default.compare(password, student.password);
     if (!compare) {
         return res.json({ error: "Invalide email or password" });
     }
-    const token = generator(student.id, res);
+    // Generate and set auth token
+    const token = (0, generateToken_1.generator)(student.id, res);
     res.json({
         status: "success",
         data: {
@@ -59,6 +87,8 @@ const login = async (req, res) => {
         token,
     });
 };
+exports.login = login;
+// Logout student - clear auth cookie
 const logout = async (req, res) => {
     res.cookie("token", "", {
         httpOnly: true,
@@ -69,22 +99,26 @@ const logout = async (req, res) => {
         message: "student logout successfully",
     });
 };
+exports.logout = logout;
+// Verify JWT token validity
 const check_token = (req, res) => {
     try {
         const token = req.cookies.token;
         if (!token) {
             return res.status(401).json({
                 loggedIn: false,
+                message: "this thing was here init",
             });
         }
-        const decoder = jwt.verify(token, process.env.SERVER_KEY);
+        const decoder = jsonwebtoken_1.default.verify(token, process.env.SERVER_KEY);
         return res.json({ loggedIn: true, id: decoder });
     }
     catch (e) {
         console.log(e);
         return res.status(401).json({
             loggedIn: false,
+            message: "what the fuck",
         });
     }
 };
-export { register, login, logout, check_token };
+exports.check_token = check_token;

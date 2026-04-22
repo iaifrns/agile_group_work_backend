@@ -1,0 +1,953 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.getAllTasks = exports.getTaskById = exports.getMyTasks = exports.getAllGroupTasks = exports.getFeedbackForTask = exports.deleteTask = exports.updateTaskMembers = exports.updateTask = exports.createFeedback = exports.createTask = void 0;
+const prisma_1 = require("../lib/prisma");
+const prisma_2 = require("../generated/prisma");
+const socket_1 = require("../socket");
+/*
+ * Create Task Controller
+ * Create Feedback Controller
+ * Update Task Controller
+ * Delete Task Controller
+ * Get Feedback Controller
+ * Get all Tasks Controller
+ * Get Single Task Controller
+ */
+//1.Create Task Controller
+const createTask = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const { title, desc, status, category, type, students: studentList, groupId, dueDate, } = req.body;
+        //check required fields
+        if (!title || !desc || !status || !category) {
+            return res.status(400).json({
+                success: false,
+                message: "Missing required fields: title, desc, status, category are needed.",
+            });
+        }
+        //check if status is valid
+        if (!Object.values(prisma_2.TaskStatus).includes(status)) {
+            return res.status(400).json({
+                success: false,
+                message: `Invalid status. Must be one of: 
+                ${Object.values(prisma_2.TaskStatus).join(", ")}`,
+            });
+        }
+        //check if category is valid
+        if (!Object.values(prisma_2.TaskCategory).includes(category)) {
+            return res.status(400).json({
+                success: false,
+                message: `Invalid category. Must be one of: 
+                ${Object.values(prisma_2.TaskCategory).join(", ")}`,
+            });
+        }
+        //check if type is valid
+        if (!Object.values(prisma_2.TaskType).includes(type)) {
+            return res.status(400).json({
+                success: false,
+                message: `Invalid type. Must be one of:
+                ${Object.values(prisma_2.TaskType).join(", ")}`,
+            });
+        }
+        //check students array
+        if (!studentList ||
+            !Array.isArray(studentList) ||
+            studentList.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: "Group tasks require at least one assigned student",
+            });
+        }
+        //verify for Group task
+        if (type.includes("GROUP")) {
+            //check groupID
+            if (!groupId) {
+                return res.status(400).json({
+                    success: false,
+                    message: "Group tasks require a groupId",
+                });
+            }
+            //check if group exists
+            const group = await prisma_1.prisma.group.findUnique({
+                where: { id: groupId },
+                include: {
+                    groupMembers: true,
+                },
+            });
+            if (!group) {
+                return res.status(404).json({
+                    success: false,
+                    message: "Group not found",
+                });
+            }
+            //check if current user is group member
+            const isMember = group.groupMembers.some((member) => member.student_id === userId);
+            if (!isMember) {
+                return res.status(403).json({
+                    success: false,
+                    message: "You must be a member of this group to create group task",
+                });
+            }
+            //check if assigned students all belong to this group
+            const memberIds = group.groupMembers.map((m) => m.student_id);
+            const invalidAssignees = studentList.filter((id) => memberIds.includes(id));
+            if (invalidAssignees.length === studentList.length) {
+                return res.status(400).json({
+                    success: false,
+                    message: `These students are not members of the group: 
+                    ${invalidAssignees.join(", ")}`,
+                });
+            }
+            const task = await prisma_1.prisma.$transaction(async (transaction) => {
+                const task = await transaction.task.create({
+                    data: {
+                        title: title.trim(),
+                        desc: desc.trim(),
+                        status: status,
+                        category: category,
+                        type: type,
+                        students: {
+                            connect: studentList,
+                        },
+                        groupId: group.id,
+                        dueDate,
+                    },
+                    select: {
+                        id: true,
+                        title: true,
+                        desc: true,
+                        status: true,
+                        category: true,
+                        type: true,
+                        groupId: true,
+                        students: {
+                            select: {
+                                id: true,
+                                firstName: true,
+                                lastName: true,
+                                email: true,
+                                phoneNumber: true,
+                                classLevel: true,
+                            },
+                        },
+                        feedBack: true,
+                        dueDate: true,
+                        group: {
+                            select: {
+                                id: true,
+                                name: true,
+                                admin: true,
+                                createdAt: true,
+                            },
+                        },
+                    },
+                });
+                await Promise.all([
+                    transaction.notification.create({
+                        data: {
+                            message: "A new Task was create in " + group.name + " group",
+                            navigate: "commitment",
+                            students: {
+                                connect: group.groupMembers.map((member) => {
+                                    return { id: member.student_id };
+                                }),
+                            },
+                        },
+                    }),
+                    transaction.notification.create({
+                        data: {
+                            message: "The Task " +
+                                task.title +
+                                " was Assign to you in " +
+                                group.name +
+                                " group",
+                            navigate: "commitment",
+                            students: {
+                                connect: studentList,
+                            },
+                        },
+                    }),
+                ]);
+                return task;
+            });
+            const io = (0, socket_1.getIo)();
+            io.emit("notification", {
+                message: "new notification",
+            });
+            return res.status(201).json({
+                success: true,
+                message: "Group task created successfully",
+                data: {
+                    ...task,
+                    groupId: groupId,
+                },
+            });
+        }
+        //verify personal task
+        if (type.includes("PERSONAL")) {
+            console.error(studentList);
+            //create task body and notify
+            const task = await prisma_1.prisma.$transaction(async (transaction) => {
+                const task = await transaction.task.create({
+                    data: {
+                        title: title.trim(),
+                        desc: desc.trim(),
+                        status: status,
+                        category: category,
+                        type: type,
+                        students: {
+                            connect: studentList, // link to students: [{id: ""}]
+                        },
+                        dueDate,
+                    },
+                    select: {
+                        id: true,
+                        title: true,
+                        desc: true,
+                        status: true,
+                        category: true,
+                        type: true,
+                        groupId: true,
+                        students: {
+                            select: {
+                                id: true,
+                                firstName: true,
+                                lastName: true,
+                                email: true,
+                                phoneNumber: true,
+                                classLevel: true,
+                            },
+                        },
+                        feedBack: true,
+                        dueDate: true,
+                    },
+                });
+                await transaction.notification.create({
+                    data: {
+                        message: "task " + task.title + " created successfully",
+                        navigate: "commitment",
+                        students: {
+                            connect: [{ id: userId }],
+                        },
+                    },
+                });
+                return task;
+            });
+            const io = (0, socket_1.getIo)();
+            io.emit("notification", {
+                message: "new notification",
+            });
+            return res.status(201).json({
+                success: true,
+                message: "Personal task created successfully",
+                data: task,
+            });
+        }
+    }
+    catch (e) {
+        console.error("Create task error:", e);
+        return res.status(500).json({
+            success: false,
+            message: "Server error",
+        });
+    }
+};
+exports.createTask = createTask;
+//2.Create Feedback Controller
+const createFeedback = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const { message } = req.body;
+        const { taskId } = req.params;
+        //check login status
+        if (!userId) {
+            return res.status(401).json({
+                success: false,
+                message: "Not authenticated",
+            });
+        }
+        //check if taskId is valid
+        if (!taskId) {
+            return res.status(400).json({
+                success: false,
+                message: "Task ID is required",
+            });
+        }
+        //check if message exists
+        if (!message || !message.trim()) {
+            return res.status(400).json({
+                success: false,
+                message: "Feedback message is required",
+            });
+        }
+        //check if task exists
+        const task = await prisma_1.prisma.task.findUnique({
+            where: { id: taskId },
+        });
+        if (!task) {
+            return res.status(404).json({
+                success: false,
+                message: "Task not found",
+            });
+        }
+        //create feedback
+        const feedback = await prisma_1.prisma.feedBack.create({
+            data: {
+                message: message.trim(),
+                studentId: userId, //current userId
+                taskId: taskId,
+            },
+            include: {
+                //return students information
+                student: {
+                    select: {
+                        id: true,
+                        firstName: true,
+                        lastName: true,
+                        email: true,
+                    },
+                },
+                //return task information
+                task: {
+                    select: {
+                        id: true,
+                        title: true,
+                        status: true,
+                    },
+                },
+            },
+        });
+        return res.status(201).json({
+            success: true,
+            message: "Feedback created successfully",
+            data: feedback,
+        });
+    }
+    catch (e) {
+        console.error("Create feedback error:", e);
+        return res.status(500).json({
+            success: false,
+            message: "Server error",
+        });
+    }
+};
+exports.createFeedback = createFeedback;
+//3.Update Task Controller
+const updateTask = async (req, res) => {
+    try {
+        const user = req.user;
+        const { taskId } = req.params;
+        const { title, desc, status, category, student, dueDate } = req.body;
+        //check if taskId exist
+        if (!taskId) {
+            return res.status(400).json({
+                success: false,
+                message: "Task ID is required",
+            });
+        }
+        //check if req.body exist
+        if (!req.body) {
+            return res.status(400).json({
+                success: false,
+                message: "Request body is missing. Maybe forget Content-Type: application/json?",
+            });
+        }
+        //check if req.body contains data
+        if (Object.keys(req.body).length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: "Empty request body. Provide at least one field to update.",
+            });
+        }
+        const updateData = {};
+        // if one item === null or undefined (trim blank)
+        if (title?.trim()) {
+            updateData.title = title.trim();
+        }
+        if (desc?.trim()) {
+            updateData.desc = desc.trim();
+        }
+        if (status) {
+            //check if status is valid
+            if (!Object.values(prisma_2.TaskStatus).includes(status)) {
+                return res.status(400).json({
+                    success: false,
+                    message: `Invalid status. Must be one of: 
+                ${Object.values(prisma_2.TaskStatus).join(", ")}`,
+                });
+            }
+            updateData.status = status;
+        }
+        if (category) {
+            //check if category is valid
+            if (!Object.values(prisma_2.TaskCategory).includes(category)) {
+                return res.status(400).json({
+                    success: false,
+                    message: `Invalid status. Must be one of: 
+                ${Object.values(prisma_2.TaskCategory).join(", ")}`,
+                });
+            }
+            updateData.category = category;
+        }
+        if (student) {
+            if (!Array.isArray(student)) {
+                return res.status(400).json({
+                    success: false,
+                    message: "sudent must be an array of student Ids",
+                });
+            }
+            updateData.students = {
+                set: student, //update into new array
+            };
+        }
+        updateData.dueDate = dueDate;
+        //check if there is any field need to update
+        if (Object.keys(updateData).length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: "No valid fields to update provided",
+            });
+        }
+        const updateTask = await prisma_1.prisma.$transaction(async (transation) => {
+            //update database
+            const updateTask = await transation.task.update({
+                where: {
+                    id: taskId,
+                },
+                data: updateData,
+                select: {
+                    id: true,
+                    title: true,
+                    desc: true,
+                    status: true,
+                    category: true,
+                    //sudent: true,
+                    students: true,
+                },
+            });
+            await transation.notification.create({
+                data: {
+                    message: "The task " +
+                        updateTask.title +
+                        " was updated by " +
+                        user.firstName +
+                        " " +
+                        user.lastName,
+                    navigate: "commitment",
+                    students: {
+                        connect: updateTask.students,
+                    },
+                },
+            });
+            return updateTask;
+        });
+        const io = (0, socket_1.getIo)();
+        io.emit("notification", {
+            message: "new notification",
+        });
+        //return status message
+        res.status(200).json({
+            success: true,
+            message: "Task updated successfully",
+            data: updateTask,
+        });
+    }
+    catch (error) {
+        console.error("Update task error:", error);
+        if (error && typeof error === "object" && "code" in error) {
+            const prismaError = error;
+            //P2025 in Prisma = 'Record to update not found'
+            if (prismaError.code === "P2025") {
+                return res.status(404).json({
+                    success: false,
+                    message: "Task not found",
+                });
+            }
+            //other Prisma errors
+            if (prismaError.code?.startsWith("P")) {
+                return res.status(400).json({
+                    success: false,
+                    message: `Database error: ${error.code}`,
+                });
+            }
+            res.status(500).json({
+                success: false,
+                message: "Server error",
+            });
+        }
+    }
+};
+exports.updateTask = updateTask;
+//3.Update Task assign Controller
+const updateTaskMembers = async (req, res) => {
+    try {
+        const { taskId } = req.params;
+        const { members, oldmembers } = req.body;
+        //check if taskId exist
+        if (!taskId) {
+            return res.status(400).json({
+                success: false,
+                message: "Task ID is required",
+            });
+        }
+        //check if req.body exist
+        if (!req.body) {
+            return res.status(400).json({
+                success: false,
+                message: "Request body is missing. Maybe forget Content-Type: application/json?",
+            });
+        }
+        //check if req.body contains data
+        if (Object.keys(req.body).length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: "Empty request body. Provide at least one field to update.",
+            });
+        }
+        if (members) {
+            if (!Array.isArray(members)) {
+                return res.status(400).json({
+                    success: false,
+                    message: "sudent must be an array of student Ids",
+                });
+            }
+        }
+        //update database
+        const updateTask = await prisma_1.prisma.task.update({
+            where: {
+                id: taskId,
+            },
+            data: {
+                students: {
+                    disconnect: oldmembers,
+                    connect: members,
+                },
+            },
+            select: {
+                students: true,
+            },
+        });
+        //return status message
+        res.status(200).json({
+            success: true,
+            message: "Task updated successfully",
+            data: updateTask,
+        });
+    }
+    catch (error) {
+        console.error("Update task error:", error);
+        if (error && typeof error === "object" && "code" in error) {
+            const prismaError = error;
+            //P2025 in Prisma = 'Record to update not found'
+            if (prismaError.code === "P2025") {
+                return res.status(404).json({
+                    success: false,
+                    message: "Task not found",
+                });
+            }
+            //other Prisma errors
+            if (prismaError.code?.startsWith("P")) {
+                return res.status(400).json({
+                    success: false,
+                    message: `Database error: ${error.code}`,
+                });
+            }
+            res.status(500).json({
+                success: false,
+                message: "Server error",
+            });
+        }
+    }
+};
+exports.updateTaskMembers = updateTaskMembers;
+// Delete Task - Admin Only
+const deleteTask = async (req, res) => {
+    const user = req.user;
+    try {
+        const { taskId } = req.params;
+        // Check if task exists
+        const task = await prisma_1.prisma.task.findUnique({
+            where: { id: taskId },
+        });
+        if (!task) {
+            return res
+                .status(404)
+                .json({ success: false, message: "Task not found" });
+        }
+        /*
+            Admin check - User must be admin of at least oen group
+            Once Task has groupId, update this method
+             */
+        let adminGroup;
+        if (task.type == "GROUP") {
+            adminGroup = await prisma_1.prisma.group.findFirst({
+                where: { admin: user.id },
+                include: {
+                    groupMembers: true,
+                },
+            });
+            if (!adminGroup) {
+                return res
+                    .status(403)
+                    .json({ success: false, message: "Forbidden. Admin Only" });
+            }
+        }
+        else {
+            adminGroup = { groupMembers: [user] };
+        }
+        // Delete task - feedback records removed automatically via cascade
+        await prisma_1.prisma.$transaction(async (transaction) => {
+            await transaction.task.delete({ where: { id: taskId } });
+            await transaction.notification.create({
+                data: {
+                    message: "The task " + task.title + " was deleted",
+                    navigate: "commitments",
+                    students: {
+                        connect: adminGroup.groupMembers.map((member) => {
+                            return { id: member.student_id ? member.student_id : member.id };
+                        }),
+                    },
+                },
+            });
+        });
+        const io = (0, socket_1.getIo)();
+        io.emit("notification", {
+            message: "new notification",
+        });
+        return res.status(200).json({ success: true, message: "Task Deleted" });
+    }
+    catch (error) {
+        console.error("Delete task error:", error);
+        return res.status(500).json({ success: false, message: "Server error" });
+    }
+};
+exports.deleteTask = deleteTask;
+// GET feedback for tasks
+const getFeedbackForTask = async (req, res) => {
+    try {
+        const { taskId } = req.params;
+        // check if taskId is provided
+        if (!taskId) {
+            return res.status(400).json({
+                success: false,
+                message: "Task ID is required",
+            });
+        }
+        // check if task exists
+        const task = await prisma_1.prisma.task.findUnique({
+            where: { id: taskId },
+            select: {
+                id: true,
+                title: true,
+            },
+        });
+        if (!task) {
+            return res.status(404).json({
+                success: false,
+                message: "Task not found",
+            });
+        }
+        // get all feedback for the task, newest first
+        const feedbacks = await prisma_1.prisma.feedBack.findMany({
+            where: {
+                taskId: taskId,
+            },
+            orderBy: {
+                createdAt: "desc",
+            },
+            select: {
+                id: true,
+                message: true,
+                createdAt: true,
+                student: {
+                    select: {
+                        id: true,
+                        firstName: true,
+                        lastName: true,
+                        email: true,
+                    },
+                },
+            },
+        });
+        return res.status(200).json({
+            success: true,
+            count: feedbacks.length,
+            task: task,
+            data: feedbacks,
+        });
+    }
+    catch (error) {
+        console.error("Get feedback for task error:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Server error",
+        });
+    }
+};
+exports.getFeedbackForTask = getFeedbackForTask;
+// GET all group tasks for a specific group
+const getAllGroupTasks = async (req, res) => {
+    try {
+        const { groupId } = req.params;
+        const user = req.user; // Authenticated user from middleware
+        // Verify group exists
+        const group = await prisma_1.prisma.group.findUnique({
+            where: {
+                id: groupId,
+            },
+        });
+        if (!group) {
+            return res.status(404).json({
+                success: false,
+                message: "This group does not exist",
+            });
+        }
+        // Check if user is a member of the group
+        const groupMember = await prisma_1.prisma.groupMembers.findFirst({
+            where: {
+                group_id: groupId,
+                student_id: user.id,
+            },
+        });
+        if (!groupMember) {
+            return res.status(409).json({
+                success: false,
+                message: "Unauthorize this is only for the group members",
+            });
+        }
+        // Fetch all GROUP type tasks for this group with related counts
+        const tasks = await prisma_1.prisma.task.findMany({
+            where: {
+                type: "GROUP",
+                groupId: groupId,
+            },
+            select: {
+                id: true,
+                title: true,
+                desc: true,
+                status: true,
+                category: true,
+                type: true,
+                _count: {
+                    select: {
+                        feedBack: true, // Count of feedback entries
+                        students: true, // Count of assigned students
+                    },
+                },
+                students: true,
+                dueDate: true,
+                createdAt: true,
+            },
+            orderBy: {
+                createdAt: "asc", // Oldest tasks first
+            },
+        });
+        // Format task data for cleaner response
+        const formattedTasks = tasks.map((task) => ({
+            id: task.id,
+            title: task.title,
+            desc: task.desc,
+            status: task.status,
+            category: task.category,
+            type: task.type,
+            feedbackCount: task._count.feedBack,
+            studentsCount: task._count.students,
+            students: task.students,
+            due: task.dueDate,
+            createdAt: task.createdAt,
+        }));
+        return res.status(200).json({
+            success: true,
+            count: formattedTasks.length,
+            data: formattedTasks,
+        });
+    }
+    catch (error) {
+        console.error("Get all tasks error:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Server error",
+        });
+    }
+};
+exports.getAllGroupTasks = getAllGroupTasks;
+// GET all personal tasks for the authenticated user
+const getMyTasks = async (req, res) => {
+    try {
+        const user = req.user; // Authenticated user from middleware
+        // Fetch all PERSONAL type tasks assigned to this student
+        const tasks = await prisma_1.prisma.task.findMany({
+            where: {
+                type: "PERSONAL",
+                students: {
+                    some: {
+                        id: user.id, // Filter tasks where this student is assigned
+                    },
+                },
+            },
+            select: {
+                id: true,
+                title: true,
+                desc: true,
+                status: true,
+                category: true,
+                type: true,
+                _count: {
+                    select: {
+                        feedBack: true, // Count of feedback entries for this task
+                        students: true, // Count of students assigned to this task
+                    },
+                },
+                students: true,
+                dueDate: true,
+                createdAt: true,
+            },
+            orderBy: {
+                createdAt: "asc", // Oldest tasks first
+            },
+        });
+        // Format task data for cleaner response
+        const formattedTasks = tasks.map((task) => ({
+            id: task.id,
+            title: task.title,
+            desc: task.desc,
+            status: task.status,
+            category: task.category,
+            type: task.type,
+            feedbackCount: task._count.feedBack,
+            studentsCount: task._count.students,
+            students: task.students,
+            due: task.dueDate,
+            createdAt: task.createdAt,
+        }));
+        return res.status(200).json({
+            success: true,
+            count: formattedTasks.length,
+            data: formattedTasks,
+        });
+    }
+    catch (error) {
+        console.error("Get all tasks error:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Server error",
+        });
+    }
+};
+exports.getMyTasks = getMyTasks;
+// GET single task by ID with full details including students and feedback
+const getTaskById = async (req, res) => {
+    try {
+        const { taskId } = req.params;
+        // Validate task ID parameter
+        if (!taskId) {
+            return res.status(400).json({
+                success: false,
+                message: "Task ID is required",
+            });
+        }
+        // Fetch task with nested student and feedback data
+        const task = await prisma_1.prisma.task.findUnique({
+            where: {
+                id: taskId,
+            },
+            select: {
+                id: true,
+                title: true,
+                desc: true,
+                status: true,
+                category: true,
+                type: true,
+                dueDate: true,
+                createdAt: true,
+                groupId: true,
+                // Include assigned students with their profile info
+                students: {
+                    select: {
+                        id: true,
+                        firstName: true,
+                        lastName: true,
+                        email: true,
+                        classLevel: true,
+                        phoneNumber: true,
+                    },
+                },
+                // Include feedback with author details
+                feedBack: {
+                    select: {
+                        id: true,
+                        message: true,
+                        createdAt: true,
+                        student: {
+                            select: {
+                                id: true,
+                                firstName: true,
+                                lastName: true,
+                                email: true,
+                            },
+                        },
+                    },
+                },
+            },
+        });
+        // Handle task not found
+        if (!task) {
+            return res.status(404).json({
+                success: false,
+                message: "Task not found",
+            });
+        }
+        return res.status(200).json({
+            success: true,
+            data: task,
+        });
+    }
+    catch (error) {
+        console.error("Get task by ID error:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Server error",
+        });
+    }
+};
+exports.getTaskById = getTaskById;
+// GET all tasks (both personal and group tasks the user has access to)
+const getAllTasks = async (req, res) => {
+    try {
+        const user = req.user; // Authenticated user from middleware
+        console.log("Backend here i am");
+        console.log(user, "Backend to front");
+        // Fetch tasks assigned to user: personal tasks OR group tasks where user is a member
+        const tasks = await prisma_1.prisma.task.findMany({
+            where: {
+                students: {
+                    some: {
+                        id: user.id, // User is assigned to this task
+                    },
+                },
+                OR: [
+                    { type: "PERSONAL" }, // Personal tasks directly assigned to user
+                    {
+                        group: {
+                            groupMembers: {
+                                some: { AND: [{ student_id: user.id }, { status: "MEMBER" }] }, // User is an approved member of the group
+                            },
+                        },
+                    }, // Group tasks where user belongs to the group
+                ],
+            },
+        });
+        return res.json({
+            success: true,
+            data: tasks,
+        });
+    }
+    catch (error) {
+        console.error("Get task by ID error:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Server error",
+        });
+    }
+};
+exports.getAllTasks = getAllTasks;

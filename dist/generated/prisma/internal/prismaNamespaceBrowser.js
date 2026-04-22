@@ -48,7 +48,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.NullsOrder = exports.QueryMode = exports.SortOrder = exports.GroupScalarFieldEnum = exports.GroupMembersScalarFieldEnum = exports.StudentScalarFieldEnum = exports.TransactionIsolationLevel = exports.ModelName = exports.AnyNull = exports.JsonNull = exports.DbNull = exports.NullTypes = exports.Decimal = void 0;
+exports.NullsOrder = exports.QueryMode = exports.SortOrder = exports.ScheduleScalarFieldEnum = exports.NotificationScalarFieldEnum = exports.FeedBackScalarFieldEnum = exports.TaskScalarFieldEnum = exports.GroupScalarFieldEnum = exports.GroupMembersScalarFieldEnum = exports.StudentScalarFieldEnum = exports.TransactionIsolationLevel = exports.ModelName = exports.AnyNull = exports.JsonNull = exports.DbNull = exports.NullTypes = exports.Decimal = void 0;
 const runtime = __importStar(require("@prisma/client/runtime/index-browser"));
 exports.Decimal = runtime.Decimal;
 exports.NullTypes = {
@@ -77,7 +77,11 @@ exports.AnyNull = runtime.AnyNull;
 exports.ModelName = {
     Student: 'Student',
     GroupMembers: 'GroupMembers',
-    Group: 'Group'
+    Group: 'Group',
+    Task: 'Task',
+    FeedBack: 'FeedBack',
+    Notification: 'Notification',
+    Schedule: 'Schedule'
 };
 /*
  * Enums
@@ -100,13 +104,48 @@ exports.StudentScalarFieldEnum = {
 exports.GroupMembersScalarFieldEnum = {
     id: 'id',
     student_id: 'student_id',
-    group_id: 'group_id'
+    group_id: 'group_id',
+    status: 'status'
 };
 exports.GroupScalarFieldEnum = {
     id: 'id',
     name: 'name',
     createdAt: 'createdAt',
     admin: 'admin'
+};
+exports.TaskScalarFieldEnum = {
+    id: 'id',
+    title: 'title',
+    desc: 'desc',
+    status: 'status',
+    category: 'category',
+    type: 'type',
+    groupId: 'groupId',
+    createdAt: 'createdAt',
+    dueDate: 'dueDate'
+};
+exports.FeedBackScalarFieldEnum = {
+    id: 'id',
+    message: 'message',
+    studentId: 'studentId',
+    taskId: 'taskId',
+    createdAt: 'createdAt'
+};
+exports.NotificationScalarFieldEnum = {
+    id: 'id',
+    message: 'message',
+    isRead: 'isRead',
+    navigate: 'navigate',
+    createdAt: 'createdAt'
+};
+exports.ScheduleScalarFieldEnum = {
+    id: 'id',
+    title: 'title',
+    desc: 'desc',
+    createAt: 'createAt',
+    date: 'date',
+    group_id: 'group_id',
+    user_id: 'user_id'
 };
 exports.SortOrder = {
     asc: 'asc',

@@ -48,7 +48,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.defineExtension = exports.NullsOrder = exports.QueryMode = exports.SortOrder = exports.GroupScalarFieldEnum = exports.GroupMembersScalarFieldEnum = exports.StudentScalarFieldEnum = exports.TransactionIsolationLevel = exports.ModelName = exports.AnyNull = exports.JsonNull = exports.DbNull = exports.NullTypes = exports.prismaVersion = exports.getExtensionContext = exports.Decimal = exports.Sql = exports.raw = exports.join = exports.empty = exports.sql = exports.PrismaClientValidationError = exports.PrismaClientInitializationError = exports.PrismaClientRustPanicError = exports.PrismaClientUnknownRequestError = exports.PrismaClientKnownRequestError = void 0;
+exports.defineExtension = exports.NullsOrder = exports.QueryMode = exports.SortOrder = exports.ScheduleScalarFieldEnum = exports.NotificationScalarFieldEnum = exports.FeedBackScalarFieldEnum = exports.TaskScalarFieldEnum = exports.GroupScalarFieldEnum = exports.GroupMembersScalarFieldEnum = exports.StudentScalarFieldEnum = exports.TransactionIsolationLevel = exports.ModelName = exports.AnyNull = exports.JsonNull = exports.DbNull = exports.NullTypes = exports.prismaVersion = exports.getExtensionContext = exports.Decimal = exports.Sql = exports.raw = exports.join = exports.empty = exports.sql = exports.PrismaClientValidationError = exports.PrismaClientInitializationError = exports.PrismaClientRustPanicError = exports.PrismaClientUnknownRequestError = exports.PrismaClientKnownRequestError = void 0;
 const runtime = __importStar(require("@prisma/client/runtime/client"));
 /**
  * Prisma Errors
@@ -72,12 +72,12 @@ exports.Sql = runtime.Sql;
 exports.Decimal = runtime.Decimal;
 exports.getExtensionContext = runtime.Extensions.getExtensionContext;
 /**
- * Prisma Client JS version: 7.3.0
- * Query Engine version: 9d6ad21cbbceab97458517b147a6a09ff43aa735
+ * Prisma Client JS version: 7.5.0
+ * Query Engine version: 280c870be64f457428992c43c1f6d557fab6e29e
  */
 exports.prismaVersion = {
-    client: "7.3.0",
-    engine: "9d6ad21cbbceab97458517b147a6a09ff43aa735"
+    client: "7.5.0",
+    engine: "280c870be64f457428992c43c1f6d557fab6e29e"
 };
 exports.NullTypes = {
     DbNull: runtime.NullTypes.DbNull,
@@ -105,7 +105,11 @@ exports.AnyNull = runtime.AnyNull;
 exports.ModelName = {
     Student: 'Student',
     GroupMembers: 'GroupMembers',
-    Group: 'Group'
+    Group: 'Group',
+    Task: 'Task',
+    FeedBack: 'FeedBack',
+    Notification: 'Notification',
+    Schedule: 'Schedule'
 };
 /**
  * Enums
@@ -128,13 +132,48 @@ exports.StudentScalarFieldEnum = {
 exports.GroupMembersScalarFieldEnum = {
     id: 'id',
     student_id: 'student_id',
-    group_id: 'group_id'
+    group_id: 'group_id',
+    status: 'status'
 };
 exports.GroupScalarFieldEnum = {
     id: 'id',
     name: 'name',
     createdAt: 'createdAt',
     admin: 'admin'
+};
+exports.TaskScalarFieldEnum = {
+    id: 'id',
+    title: 'title',
+    desc: 'desc',
+    status: 'status',
+    category: 'category',
+    type: 'type',
+    groupId: 'groupId',
+    createdAt: 'createdAt',
+    dueDate: 'dueDate'
+};
+exports.FeedBackScalarFieldEnum = {
+    id: 'id',
+    message: 'message',
+    studentId: 'studentId',
+    taskId: 'taskId',
+    createdAt: 'createdAt'
+};
+exports.NotificationScalarFieldEnum = {
+    id: 'id',
+    message: 'message',
+    isRead: 'isRead',
+    navigate: 'navigate',
+    createdAt: 'createdAt'
+};
+exports.ScheduleScalarFieldEnum = {
+    id: 'id',
+    title: 'title',
+    desc: 'desc',
+    createAt: 'createAt',
+    date: 'date',
+    group_id: 'group_id',
+    user_id: 'user_id'
 };
 exports.SortOrder = {
     asc: 'asc',
